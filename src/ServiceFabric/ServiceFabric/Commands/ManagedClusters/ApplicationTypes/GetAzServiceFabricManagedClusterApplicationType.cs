@@ -19,6 +19,13 @@ using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using Microsoft.Azure.Commands.Common.Strategies;
+using Azure.Core;
+using Microsoft.Azure.KeyVault.Models;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -66,10 +73,17 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppTypeList = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.ApplicationTypes.List(this.ResourceGroupName, this.ClusterName),
-                            this.SfrpMcClient.ApplicationTypes.ListNext);
-                        WriteObject(managedAppTypeList.Select(appType => new PSManagedApplicationType(appType)), true);
+
+                        /* var managedAppTypeList = this.ReturnListByPageResponse(
+                             this.SfrpMcClient.ApplicationTypes.List(this.ResourceGroupName, this.ClusterName),
+                             this.SfrpMcClient.ApplicationTypes.ListNext);*/
+
+                        //WriteObject(managedAppTypeList.Select(appType => new PSManagedApplicationType(appType)), true);
+
+                        var managedAppTypeList = GetApplicationTypes().GetAwaiter().GetResult();
+                        WriteObject(managedAppTypeList, true);
+
+
                         break;
                     case ByName:
                         GetByName();
@@ -91,8 +105,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void GetByName()
         {
-            var managedAppType = this.SfrpMcClient.ApplicationTypes.Get(this.ResourceGroupName, this.ClusterName, this.Name);
-            WriteObject(new PSManagedApplicationType(managedAppType), false);
+            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
+            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+
+            // get the collection of this ServiceFabricManagedApplicationTypeResource
+            ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
+            ServiceFabricManagedApplicationTypeResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+
+            WriteObject(result.Data, false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -101,6 +121,23 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ResourceGroupName = resourceGroup;
             this.Name = resourceName;
             this.ClusterName = parentResourceName;
+        }
+
+        private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes() {
+            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
+            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+
+            // get the collection of this ServiceFabricManagedApplicationTypeResource
+            ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
+            var managedAppTypeList = collection.GetAllAsync();
+            List<ServiceFabricManagedApplicationTypeData> appTypes = new List<ServiceFabricManagedApplicationTypeData>();
+
+            await foreach (ServiceFabricManagedApplicationTypeResource item in collection.GetAllAsync())
+            {
+                appTypes.Add(item.Data);
+            }
+
+            return appTypes;
         }
     }
 }

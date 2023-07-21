@@ -13,8 +13,12 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure.Core;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
@@ -53,7 +57,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceGroup, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByInputObject, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceId, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByResourceId, ValueFromPipelineByPropertyName = true,
             HelpMessage = "Arm ResourceId of the managed application type.")]
@@ -76,7 +80,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                ApplicationTypeResource updatedAppTypeParams = null;
+                ServiceFabricManagedApplicationTypeData updatedAppTypeParams = null;
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
@@ -92,9 +96,26 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeParams != null && ShouldProcess(target: this.Name, action: $"Update managed app type name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var managedAppType = this.SfrpMcClient.ApplicationTypes.CreateOrUpdate(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppTypeParams);
+                    //var managedAppType = this.SfrpMcClient.ApplicationTypes.CreateOrUpdate(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppTypeParams);
 
-                    WriteObject(new PSManagedApplicationType(managedAppType), false);
+
+                    ServiceFabricManagedApplicationTypeResource managedAppType;
+
+                    ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id,
+                        this.ResourceGroupName,
+                        this.ClusterName,
+                        this.Name);
+
+                    managedAppType = SafeGetResource(() =>
+                        this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationTypeResourceId));
+
+                    ServiceFabricManagedApplicationTypePatch patch = new ServiceFabricManagedApplicationTypePatch();
+                    patch.Tags.Add(this.Tag);
+
+                    ServiceFabricManagedApplicationTypeResource updatedApptypeResource = managedAppType.UpdateAsync(patch).GetAwaiter().GetResult();
+
+                    WriteObject(updatedApptypeResource.Data);
                 }
             }
             catch (Exception ex)
@@ -104,37 +125,43 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ApplicationTypeResource GetUpdatedAppTypeParams(ApplicationTypeResource inputObject = null)
+        private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeResource inputObject = null)
         {
-            ApplicationTypeResource currentAppType;
+            ServiceFabricManagedApplicationTypeResource currentAppType;
+
+            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id,
+                this.ResourceGroupName,
+                this.ClusterName,
+                this.Name);
+
+            currentAppType = SafeGetResource(() =>
+                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationTypeResourceId));
 
             if (inputObject == null)
             {
-                currentAppType = SafeGetResource(() =>
+                /*currentAppType = SafeGetResource(() =>
                     this.SfrpMcClient.ApplicationTypes.Get(
                         this.ResourceGroupName,
                         this.ClusterName,
                         this.Name),
-                    false);
+                    false);*/
 
                 if (currentAppType == null)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                    return currentAppType;
+                    return null;
                 }
             }
-            else
-            {
-                currentAppType = inputObject;
-            }
+
+            //currentAppType.Data = inputObject;
+            return currentAppType.Data;
 
 
-            if (this.IsParameterBound(c => c.Tag)) {
+            /*if (this.IsParameterBound(c => c.Tag)) {
                 currentAppType.Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
-            }
-
-            return currentAppType;
+            }*/
         }
          
         private void SetParams()

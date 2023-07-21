@@ -11,6 +11,7 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
+using Azure.ResourceManager;
 using Microsoft.Azure.Commands.Common.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
@@ -26,6 +27,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.Identity;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -37,6 +39,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             get { return sfrpMcClient.Value; }
             set { sfrpMcClient = new Lazy<ServiceFabricManagedClustersManagementClient>(() => value); }
+        }
+
+        private Lazy<ArmClient> armClient;
+
+        internal ArmClient ArmClient
+        {
+            get { return armClient.Value; }
+            set { armClient = new Lazy<ArmClient>(() => value);}
         }
 
         public ServiceFabricManagedCmdletBase()
@@ -54,6 +64,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 AzureEnvironment.Endpoint.ResourceManager);
                 return armClient;
             });
+
+            this.armClient = new Lazy<ArmClient> (() => new ArmClient(new DefaultAzureCredential()));
         }
 
         #region Helper

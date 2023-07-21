@@ -12,6 +12,9 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
+using Azure.Core;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
@@ -55,7 +58,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
+                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
+
+                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
+                    ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
+
+                    // get the collection of this ServiceFabricManagedClusterResource
+                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+                    ServiceFabricManagedClusterResource cluster = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
+
                     if (cluster == null)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException($"Parent cluster '{this.ClusterName}' does not exist."),
@@ -63,8 +74,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     }
                     else
                     {
-                        var appType = CreateManagedApplicationType(this.Name, cluster.Location, this.Tag);
-                        WriteObject(new PSManagedApplicationType(appType), false);
+                        var appType = CreateManagedApplicationType(this.Name, cluster.Data.Location, this.Tag);
+                        //WriteObject(new PSManagedApplicationType(appType), false);
+                        WriteObject(appType.Data);
                     }
                 }
                 catch (Exception ex)
