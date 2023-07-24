@@ -13,14 +13,16 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure.ResourceManager;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
@@ -88,7 +90,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         
         [Parameter(Mandatory = false, ParameterSetName = WithParamsByName, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ParameterSetName = WithParamsById, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         #endregion
 
@@ -99,7 +101,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster updatedClusterParams = null;
+                    ServiceFabricManagedClusterData updatedClusterParams = null;
                     switch (ParameterSetName)
                     {
                         case WithParamsByName:
@@ -113,12 +115,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                             throw new ArgumentException("Invalid parameter set", ParameterSetName);
                     }
 
-                    var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, updatedClusterParams)
-                        .GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
-                    var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = lro.Value;
 
-                    WriteObject(new PSManagedCluster(cluster), false);
+                    // ???????????????????
+                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
+
+                    WriteObject(new PSManagedCluster(result.Data), false);
                 }
                 catch (Exception ex)
                 {
@@ -128,9 +133,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ManagedCluster GetUpdatedClusterParams()
+        private ServiceFabricManagedClusterData GetUpdatedClusterParams()
         {
-            var currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
+            //var currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterData currentCluster = result.Data;
+
             this.ValidateParams(currentCluster);
 
             if (!string.IsNullOrEmpty(this.CodeVersion))
@@ -150,13 +159,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                currentCluster.Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentCluster.Tags.Clear();
+                currentCluster.Tags.Add(this.Tag);
             }
 
             return currentCluster;
         }
 
-        private void ValidateParams(ManagedCluster currentCluster)
+        private void ValidateParams(ServiceFabricManagedClusterData currentCluster)
         {
             if (this.UpgradeMode.HasValue)
             {

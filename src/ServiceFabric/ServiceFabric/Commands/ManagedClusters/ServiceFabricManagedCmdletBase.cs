@@ -16,7 +16,6 @@ using Microsoft.Azure.Commands.Common.Authentication;
 using Microsoft.Azure.Commands.Common.Authentication.Abstractions;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 using Microsoft.Rest.Azure;
 using Newtonsoft.Json.Linq;
 using System;
@@ -27,19 +26,21 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.Resources;
+using Azure.Core;
 using Azure.Identity;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
     public class ServiceFabricManagedCmdletBase : ServiceFabricCommonCmdletBase
     {
-        private Lazy<ServiceFabricManagedClustersManagementClient> sfrpMcClient;
-
-        internal ServiceFabricManagedClustersManagementClient SfrpMcClient
-        {
-            get { return sfrpMcClient.Value; }
-            set { sfrpMcClient = new Lazy<ServiceFabricManagedClustersManagementClient>(() => value); }
-        }
+        private const string ClusterResource = "Microsoft.ServiceFabric/managedClusters";
+        private const string NodeTypeResource = "Microsoft.ServiceFabric/managedClusters/nodeTypes";
+        private const string ApplicationResource = "Microsoft.ServiceFabric/managedclusters/applications";
+        private const string ApplicationTypeResource = "Microsoft.ServiceFabric/managedclusters/applicationTypes";
+        private const string ApplicationTypeVersionResource = "Microsoft.ServiceFabric/managedclusters/applicationTypes/versions";
+        private const string ServiceResource = "Microsoft.ServiceFabric/managedclusters/applications/services";
 
         private Lazy<ArmClient> armClient;
 
@@ -56,21 +57,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void InitializeManagementClients()
         {
-            this.sfrpMcClient = new Lazy<ServiceFabricManagedClustersManagementClient>(() =>
-            {
-                var armClient = AzureSession.Instance.ClientFactory.
-                CreateArmClient<ServiceFabricManagedClustersManagementClient>(
-                DefaultContext,
-                AzureEnvironment.Endpoint.ResourceManager);
-                return armClient;
-            });
-
             this.armClient = new Lazy<ArmClient> (() => new ArmClient(new DefaultAzureCredential()));
         }
 
         #region Helper
 
-        protected void PollLongRunningOperation(Rest.Azure.AzureOperationResponse beginRequestResponse)
+       /* protected void PollLongRunningOperation(Rest.Azure.AzureOperationResponse beginRequestResponse)
         {
             AzureOperationResponse<object> response2 = new Rest.Azure.AzureOperationResponse<object>
             {
@@ -167,7 +159,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             return result?.Body;
         }
-
+*/
         private string GetOperationIdFromAsyncHeader(HttpResponseHeaders headers)
         {
             if (headers.Location != null)
@@ -252,6 +244,76 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 return clone;
             }
+        }
+
+        /* protected ArmCollection GetManagedResourceCollection(ResourceIdentifier resourceId)
+         {
+             ServiceFabricManagedClusterResource serviceFabricManagedCluster;
+             ServiceFabricManagedNodeTypeResource serviceFabricManagedNodetype;
+             ServiceFabricManagedApplicationResource serviceFabricManagedApplication;
+             ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicationType;
+             ServiceFabricManagedApplicationTypeVersionResource serviceFabricManagedApplicationTypeVersion;
+             ServiceFabricManagedServiceResource serviceFabricManagedService;
+
+             switch (resourceId.ResourceType)
+             {
+                 case ClusterResource:
+                     serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(resourceId);
+                     return serviceFabricManagedCluster.GetServiceFabricManagedApplication();
+
+                 case NodeTypeResource:
+                     break;
+
+                 case ApplicationResource:
+                     break;
+
+                 case ApplicationTypeResource:
+                     break;
+
+                 case ApplicationTypeVersionResource:
+                     break;
+
+                 case ServiceResource:
+                     break;
+
+                 default:
+                     WriteError(new ErrorRecord(new InvalidOperationException($"Invalid ResourceId: '{resourceId}'"),
+                             "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
+                     break;
+             }
+
+
+             ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
+             ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+
+             // get the collection of this ServiceFabricManagedApplicationTypeResource
+             ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
+
+             return collection;
+         }*/
+
+        protected ServiceFabricManagedClusterResource GetManagedClusterResource(string resourceGroup, string clusterName)
+        {
+            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                             this.DefaultContext.Subscription.Id,
+                             resourceGroup,
+                             clusterName);
+
+            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            return serviceFabricManagedCluster;
+        }
+
+        protected ServiceFabricManagedClusterCollection GetServiceFabricManagedClusterCollection(string resourceGroupName)
+        {
+
+            ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id,
+                resourceGroupName);
+            ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
+
+            // get the collection of this ServiceFabricManagedClusterResource
+            ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+            return collection;
         }
 
         #endregion

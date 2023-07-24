@@ -19,11 +19,37 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Commands\ManagedClusters\Applications\**" />
+    <Compile Remove="Commands\ManagedClusters\ApplicationTypes\**" />
+    <Compile Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\**" />
+    <Compile Remove="Commands\ManagedClusters\Services\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\Applications\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\ApplicationTypes\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\NodeTypes\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\Services\**" />
+    <None Remove="Commands\ManagedClusters\Applications\**" />
+    <None Remove="Commands\ManagedClusters\ApplicationTypes\**" />
+    <None Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
+    <None Remove="Commands\ManagedClusters\NodeTypes\**" />
+    <None Remove="Commands\ManagedClusters\Services\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Models\ManagedClusters\PSManagedService.cs" />
+    <Compile Remove="Models\ManagedClusters\PSManagedStatefulService.cs" />
+    <Compile Remove="Models\ManagedClusters\PSManagedStatelessService.cs" />
+    <Compile Remove="Models\ManagedClusters\PSServiceCorrelation.cs" />
+    <Compile Remove="Models\ManagedClusters\PSServiceMetric.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.9.0" />
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="3.0.1" />
     <PackageReference Include="Microsoft.Azure.KeyVault.WebKey" Version="3.0.1" />
     <PackageReference Include="Microsoft.Azure.Management.ServiceFabric" Version="1.3.0" />
     <PackageReference Include="Azure.ResourceManager.ServiceFabricManagedClusters" Version="1.1.0-beta.2" />
-    <PackageReference Include="Azure.Identity " Version="1.6.1" />
   </ItemGroup>
 
   <ItemGroup>

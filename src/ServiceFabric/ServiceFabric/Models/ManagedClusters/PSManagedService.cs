@@ -14,7 +14,6 @@
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
-    using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
     using System.Collections.Generic;
     using System.Management.Automation;
 

@@ -11,15 +11,18 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using System;
-using System.Linq;
-using System.Management.Automation;
+using Azure.ResourceManager;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+using System;
+using System.Linq;
+using System.Management.Automation;
+
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -91,11 +94,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster updatedCluster = this.GetClusterWithRemovedClientCert();
-                    var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, updatedCluster)
-                        .GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithRemovedClientCert();
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
-                    var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = lro.Value;
+
+                    //?????????????????????????????????
+                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
 
                     if (this.PassThru)
                     {
@@ -103,7 +109,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     }
                     else
                     {
-                        WriteObject(new PSManagedCluster(cluster), false);
+                        WriteObject(new PSManagedCluster(updatedCluster), false);
                     }
                 }
                 catch (Exception ex)
@@ -114,38 +120,48 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ManagedCluster GetClusterWithRemovedClientCert()
+        private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert()
         {
-            ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
+            //ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
 
-            if (currentCluster.Clients == null || currentCluster.Clients.Count() == 0)
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+            var currentCluster = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var clusterResource = currentCluster.Value;
+
+            if (clusterResource.Data.Clients == null || clusterResource.Data.Clients.Count() == 0)
             {
                 throw new InvalidOperationException("The cluster has no client certifices registered.");
             }
 
-            int initialSize = currentCluster.Clients.Count();
+            int initialSize = clusterResource.Data.Clients.Count();
             switch (ParameterSetName)
             {
                 case ClientCertByTpByName:
                 case ClientCertByTpByObj:
-                    currentCluster.Clients = currentCluster.Clients.Where(cert => !string.Equals(cert.Thumbprint, this.Thumbprint, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (!clusterResource.Data.Clients.Remove(GetCertToDelete(clusterResource.Data)))
+                    {
+                        throw new InvalidOperationException($"The cluster does not have the specified client certifice thumbprint {this.Thumbprint} registered.");
+                    }
                     break;
                 case ClientCertByCnByName:
                 case ClientCertByCnByObj:
-                    currentCluster.Clients = currentCluster.Clients.Where(cert => !string.Equals(cert.CommonName, this.CommonName, StringComparison.OrdinalIgnoreCase)).ToList();
+                    if (!clusterResource.Data.Clients.Remove(GetCertToDelete(clusterResource.Data)))
+                    {
+                        throw new InvalidOperationException($"The cluster does not have the specified client certifice thumbprint {this.Thumbprint} registered.");
+                    }
                     break;
                 default:
                     throw new ArgumentException("Invalid parameter set", ParameterSetName);
             }
 
-            if(initialSize == currentCluster.Clients.Count())
+            if(initialSize == clusterResource.Data.Clients.Count())
             {
                 throw new InvalidOperationException(string.Format(
                     "Client certificate '{0}' is not registered on the cluster.",
                     (ParameterSetName == ClientCertByCnByObj || ParameterSetName == ClientCertByTpByObj) ? this.Thumbprint : this.CommonName));
             }
 
-            return currentCluster;
+            return clusterResource.Data;
         }
 
         private void SetParams()
@@ -170,6 +186,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.GetParametersByResourceId(resourceId, Constants.ManagedClusterProvider, out string resourceGroup, out string resourceName);
             this.ResourceGroupName = resourceGroup;
             this.Name = resourceName;
+        }
+
+        private ManagedClusterClientCertificate GetCertToDelete(ServiceFabricManagedClusterData data) {
+            var certList =  data.Clients.Where(cert =>
+                        string.Equals(cert.Thumbprint.ToString(), this.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+            return certList.First();
         }
     }
 }

@@ -17,11 +17,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure.Core;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -29,6 +30,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
     [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplication", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(typeof(PSManagedApplication))]
     public class SetAzServiceFabricManagedClusterApplication : ManagedApplicationCmdletBase
     {
+        private ServiceFabricManagedApplicationResource currentAppResource;
+
         private const string ByResourceGroup = "ByResourceGroup";
         private const string ByInputObject = "ByInputObject";
         private const string ByResourceId = "ByResourceId";
@@ -36,11 +39,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private const string ArmResourceIdDelimeter = "/";
         // Default Runtime Values
         private Models.FailureAction FailureActionDefault = Models.FailureAction.Manual;
-        private string HealthCheckStableDurationDefault = TimeSpan.FromSeconds(120).ToString("c");
-        private string HealthCheckRetryTimeoutDefault = TimeSpan.FromSeconds(600).ToString("c");
-        private string HealthCheckWaitDurationDefault = TimeSpan.FromSeconds(0).ToString("c");
-        private string UpgradeTimeoutDefault = TimeSpan.FromHours(12).ToString("c");
-        private string UpgradeDomainTimeoutDefault = TimeSpan.FromHours(12).ToString("c");
+        private TimeSpan HealthCheckStableDurationDefault = TimeSpan.FromSeconds(120);
+        private TimeSpan HealthCheckRetryTimeoutDefault = TimeSpan.FromSeconds(600);
+        private TimeSpan HealthCheckWaitDurationDefault = TimeSpan.FromSeconds(0);
+        private TimeSpan UpgradeTimeoutDefault = TimeSpan.FromHours(12);
+        private TimeSpan UpgradeDomainTimeoutDefault = TimeSpan.FromHours(12);
         private int ServiceTypeUnhealthyServicesMaxPercentDefault = 0;
         private int ServiceTypeMaxPercentUnhealthyReplicasPerPartitionDefault = 0;
         private int ServiceTypeMaxPercentUnhealthyPartitionsPerServiceDefault = 0;
@@ -80,7 +83,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject,
             HelpMessage = "Specify the application parameters as key/value pairs. These parameters must exist in the application manifest.")]
         [ValidateNotNullOrEmpty]
-        public Hashtable ApplicationParameter { get; set; }
+        public KeyValuePair<string, string> ApplicationParameter { get; set; }
 
         #region upgrade policy params
 
@@ -242,7 +245,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         #endregion
 
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByResourceId, ValueFromPipelineByPropertyName = true,
             HelpMessage = "Arm ResourceId of the managed application.")]
@@ -266,7 +269,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                ApplicationResource updatedAppParams = null;
+                ServiceFabricManagedApplicationData updatedAppParams = null;
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
@@ -279,12 +282,21 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
                 }
+
                 if (updatedAppParams != null && ShouldProcess(target: this.Name, action: $"Update managed application name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var beginRequestResponse = this.SfrpMcClient.Applications.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppParams)
-                        .GetAwaiter().GetResult();
 
-                    var managedApp = this.PollLongRunningOperation(beginRequestResponse);
+                    //  ???????????????????????????????????
+                    /* var beginRequestResponse = this.SfrpMcClient.Applications.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppParams)
+                         .GetAwaiter().GetResult();
+
+                     var managedApp = this.PollLongRunningOperation(beginRequestResponse);*/
+
+                    ServiceFabricManagedApplicationPatch patch = new ServiceFabricManagedApplicationPatch();
+                    patch.Tags.Add(this.Tag);
+
+                    ServiceFabricManagedApplicationResource result =  currentAppResource.UpdateAsync(patch).GetAwaiter().GetResult();
+                    var managedApp = result.Data;
 
                     WriteObject(new PSManagedApplication(managedApp), false);
                 }
@@ -296,24 +308,32 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ApplicationResource GetUpdatedAppParams(ApplicationResource inputObject = null)
+        private ServiceFabricManagedApplicationData GetUpdatedAppParams(ServiceFabricManagedApplicationData inputObject = null)
         {
-            ApplicationResource currentApp;
+            ServiceFabricManagedApplicationData currentApp;
+
             if (inputObject == null)
             {
-                currentApp = SafeGetResource(() =>
-                    this.SfrpMcClient.Applications.Get(
-                        this.ResourceGroupName,
-                        this.ClusterName,
-                        this.Name),
-                    false);
 
-                if (currentApp == null)
+                ResourceIdentifier serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
+                    this.DefaultContext.Subscription.Id,
+                    this.ResourceGroupName,
+                    this.ClusterName,
+                    this.Name);
+
+                currentAppResource = SafeGetResource(() =>
+                    this.ArmClient.GetServiceFabricManagedApplicationResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
+
+
+                if (currentAppResource == null)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                    return currentApp;
+                    //return currentApp;
+                    return null;
                 }
+
+                currentApp = currentAppResource.Data;
             }
             else
             {
@@ -329,12 +349,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.IsParameterBound(c => c.ApplicationParameter))
             {
-                currentApp.Parameters = this.ApplicationParameter?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentApp.Parameters.Add(this.ApplicationParameter);
             }
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                currentApp.Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentApp.Tags.Add(this.Tag);
             }
 
             currentApp.UpgradePolicy = SetUpgradePolicy(currentApp.UpgradePolicy);
@@ -366,7 +386,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             
             if (this.IsParameterBound(c => c.InstanceCloseDelayDurationSec))
             {
-                currentPolicy.InstanceCloseDelayDuration = this.InstanceCloseDelayDurationSec;
+                currentPolicy.InstanceCloseDelayDurationInSeconds = this.InstanceCloseDelayDurationSec;
             }
 
             if (this.IsParameterBound(c => c.UpgradeMode))
@@ -416,33 +436,34 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (this.IsParameterBound(c => c.HealthCheckRetryTimeoutSec))
                 {
-                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckRetryTimeout = TimeSpan.FromSeconds(this.HealthCheckRetryTimeoutSec).ToString("c");
+                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckRetryTimeout = TimeSpan.FromSeconds(this.HealthCheckRetryTimeoutSec);
                 }
 
                 if (this.IsParameterBound(c => c.HealthCheckWaitDurationSec))
                 {
-                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckWaitDuration = TimeSpan.FromSeconds(this.HealthCheckWaitDurationSec).ToString("c");
+                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckWaitDuration = TimeSpan.FromSeconds(this.HealthCheckWaitDurationSec);
                 }
 
                 if (this.IsParameterBound(c => c.HealthCheckStableDurationSec))
                 {
-                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckStableDuration = TimeSpan.FromSeconds(this.HealthCheckStableDurationSec).ToString("c");
+                    currentPolicy.RollingUpgradeMonitoringPolicy.HealthCheckStableDuration = TimeSpan.FromSeconds(this.HealthCheckStableDurationSec);
                 }
 
                 if (this.IsParameterBound(c => c.UpgradeDomainTimeoutSec))
                 {
-                    currentPolicy.RollingUpgradeMonitoringPolicy.UpgradeDomainTimeout = TimeSpan.FromSeconds(this.UpgradeDomainTimeoutSec).ToString("c");
+                    currentPolicy.RollingUpgradeMonitoringPolicy.UpgradeDomainTimeout = TimeSpan.FromSeconds(this.UpgradeDomainTimeoutSec);
                 }
 
                 if (this.IsParameterBound(c => c.UpgradeTimeoutSec))
                 {
-                    currentPolicy.RollingUpgradeMonitoringPolicy.UpgradeTimeout = TimeSpan.FromSeconds(this.UpgradeTimeoutSec).ToString("c");
+                    currentPolicy.RollingUpgradeMonitoringPolicy.UpgradeTimeout = TimeSpan.FromSeconds(this.UpgradeTimeoutSec);
                 }
 
                 //ApplicationHealthPolicy
                 if (currentPolicy.ApplicationHealthPolicy == null)
                 {
-                    currentPolicy.ApplicationHealthPolicy = new ApplicationHealthPolicy();
+                    // ???????????????????
+                    currentPolicy.ApplicationHealthPolicy = new ApplicationHealthPolicy(true, 5);
                 }
 
                 if (this.IsParameterBound(c => c.ConsiderWarningAsError))
@@ -482,15 +503,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (this.IsParameterBound(c => c.ServiceTypeHealthPolicyMap))
                 {
-                    if (this.ServiceTypeHealthPolicyMap == null)
-                    {
-                        currentPolicy.ApplicationHealthPolicy.ServiceTypeHealthPolicyMap = null;
-                    }
-                    else
+                    if (!(this.ServiceTypeHealthPolicyMap == null))
                     {
                         if (currentPolicy.ApplicationHealthPolicy.ServiceTypeHealthPolicyMap == null)
                         {
-                            currentPolicy.ApplicationHealthPolicy.ServiceTypeHealthPolicyMap = new Dictionary<string, ServiceTypeHealthPolicy>();
+                            currentPolicy.ApplicationHealthPolicy.ServiceTypeHealthPolicyMap.Add(new KeyValuePair<string, ServiceTypeHealthPolicy>());
                         }
 
                         foreach (DictionaryEntry entry in this.ServiceTypeHealthPolicyMap)
@@ -508,7 +525,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             if (string.IsNullOrEmpty(serviceTypeHealthPolicy))
             {
-                return new ServiceTypeHealthPolicy();
+                // ??????????????
+                return new ServiceTypeHealthPolicy(5, 5, 5);
             }
 
             string[] policyFields = serviceTypeHealthPolicy.Split(',', ' ');
@@ -518,12 +536,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 throw new ArgumentException("Invalid Service Type health policy, the input should follow the pattern & quot; &lt; MaxPercentUnhealthyPartitionsPerService & gt;,&lt; MaxPercentUnhealthyReplicasPerPartition & gt;,&lt; MaxPercentUnhealthyServices & gt; &quot;. And each value is byte.One example is “5,10,5”.");
             }
 
-            return new ServiceTypeHealthPolicy
-            {
-                MaxPercentUnhealthyPartitionsPerService = int.Parse(policyFields[0]),
-                MaxPercentUnhealthyReplicasPerPartition = int.Parse(policyFields[1]),
-                MaxPercentUnhealthyServices = int.Parse(policyFields[2])
-            };
+            int maxPercentUnhealthyPartitionsPerService = int.Parse(policyFields[0]);
+            int maxPercentUnhealthyReplicasPerPartition = int.Parse(policyFields[1]);
+            int maxPercentUnhealthyServices = int.Parse(policyFields[2]);
+
+            return new ServiceTypeHealthPolicy(
+                maxPercentUnhealthyServices, 
+                maxPercentUnhealthyPartitionsPerService, 
+                maxPercentUnhealthyReplicasPerPartition);
+            
         }
 
         private void SetParams()

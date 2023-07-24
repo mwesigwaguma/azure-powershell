@@ -14,19 +14,20 @@
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
-    using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+    using global::Azure.ResourceManager.ServiceFabricManagedClusters;
 
-    public class PSManagedApplicationTypeVersion : ApplicationTypeVersionResource
+    public class PSManagedApplicationTypeVersion : ServiceFabricManagedApplicationTypeVersionData
     {
-        public PSManagedApplicationTypeVersion(ApplicationTypeVersionResource appTypeVersion)
-            : base(
+        public PSManagedApplicationTypeVersion(ServiceFabricManagedApplicationTypeVersionData appTypeVersion)
+            /*: base(
                   appPackageUrl: appTypeVersion.AppPackageUrl,
                   id: appTypeVersion.Id,
                   name: appTypeVersion.Name,
                   type: appTypeVersion.Type,
                   location: appTypeVersion.Location,
                   provisioningState: appTypeVersion.ProvisioningState,
-                  tags: appTypeVersion.Tags)
+                  tags: appTypeVersion.Tags)*/
+        :base(appTypeVersion.Location)
         {
         }
     }

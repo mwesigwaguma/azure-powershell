@@ -14,12 +14,17 @@
 using System;
 using System.Collections.Generic;
 using System.Management.Automation;
+using Azure;
+using Azure.Core;
+using Azure.ResourceManager;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -104,13 +109,16 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster updatedCluster = this.GetClusterWithAddedClientCert();
-                    var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, updatedCluster)
-                        .GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert();
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
-                    var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = lro.Value;
 
-                    WriteObject(new PSManagedCluster(cluster), false);
+                    // ??????????????????????????????
+                    // var cluster = this.PollLongRunningOperation(beginRequestResponse);
+
+                    WriteObject(new PSManagedCluster(result.Data), false);
                 }
                 catch (Exception ex)
                 {
@@ -120,27 +128,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ManagedCluster GetClusterWithAddedClientCert()
+        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert()
         {
-            ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterData currentCluster = result.Data;
+            //ServiceFabricManagedClusterData c = new ServiceFabricManagedClusterData(AzureLocation.AustraliaCentral, lo);
 
-            if (currentCluster.Clients == null)
-            {
-                currentCluster.Clients = new List<ClientCertificate>();
-            }
-
-            var newCert = new ClientCertificate(isAdmin: this.Admin.IsPresent);
+            var newCert = new ManagedClusterClientCertificate(isAdmin: this.Admin.IsPresent);
 
             switch(ParameterSetName)
             {
                 case ClientCertByTpByName:
                 case ClientCertByTpByObj:
-                    newCert.Thumbprint = this.Thumbprint;
+                    newCert.Thumbprint = BinaryData.FromString(this.Thumbprint);
                     break;
                 case ClientCertByCnByName:
                 case ClientCertByCnByObj:
                     newCert.CommonName = this.CommonName;
-                    newCert.IssuerThumbprint = this.IssuerThumbprint != null ? string.Join(",", this.IssuerThumbprint) : null;
+                    newCert.IssuerThumbprint = this.IssuerThumbprint != null ? BinaryData.FromString(string.Join(",", this.IssuerThumbprint)) : null;
                     break;
                 default:
                     throw new ArgumentException("Invalid parameter set", ParameterSetName);

@@ -17,16 +17,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
 using System.Security;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager;
+using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
 using Microsoft.Azure.Management.Internal.Resources.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using Microsoft.WindowsAzure.Commands.Common;
 using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
-using Sku = Microsoft.Azure.Management.ServiceFabricManagedClusters.Models.Sku;
+using Azure.ResourceManager.Resources;
+using Microsoft.Azure.Commands.Common.Strategies;
+using Azure.Core;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+//using Sku = Microsoft.Azure.Management.ServiceFabricManagedClusters.Models.Sku;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -145,7 +150,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByTp, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByCn, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         #endregion
 
@@ -155,8 +160,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name));
-                    if (cluster != null)
+                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name));
+
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var clusterResource =  collection.GetAsync(this.Name).GetAwaiter().GetResult();
+
+                    if (clusterResource != null)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
                             "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
@@ -164,20 +173,30 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     else
                     {
                         // Create resource group if it doesn't exist
-                        var rg = SafeGetResource(() => this.ResourcesClient.ResourceGroups.Get(this.ResourceGroupName));
-                        if (rg == null)
+                        //var rg = SafeGetResource(() => this.ResourcesClient.ResourceGroups.Get(this.ResourceGroupName));
+
+                        ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
+                        ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
+                        
+
+                        if (resourceGroupResource == null)
                         {
                             WriteVerboseWithTimestamp(string.Format("Creating resource group {0} on {1}", this.ResourceGroupName, this.Location));
                             this.ResourcesClient.ResourceGroups.CreateOrUpdate(this.ResourceGroupName, new ResourceGroup(this.Location));
                         }
 
-                        ManagedCluster newClusterParams = this.GetNewManagedClusterParameters();
-                        var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, newClusterParams)
+                        ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
+                  
+                        ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams).GetAwaiter().GetResult();
+                        ServiceFabricManagedClusterResource result = lro.Value;
+
+                        // ?????????????????????????????????????
+                        /*var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, newClusterParams)
                             .GetAwaiter().GetResult();
 
-                        cluster = this.PollLongRunningOperation(beginRequestResponse);
+                        cluster = this.PollLongRunningOperation(beginRequestResponse);*/
 
-                        WriteObject(new PSManagedCluster(cluster), false);
+                        WriteObject(new PSManagedCluster(result.Data), false);
                     }
                 }
                 catch (Exception ex)
@@ -188,7 +207,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ManagedCluster GetNewManagedClusterParameters()
+        private ServiceFabricManagedClusterData GetNewManagedClusterParameters()
         {
             if (this.UpgradeMode == Models.ClusterUpgradeMode.Manual && string.IsNullOrEmpty(this.CodeVersion))
             {
@@ -200,22 +219,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 throw new PSArgumentException("CodeVersion should only be used when upgrade mode is set to Manual.", "CodeVersion");
             }
 
-            List<ClientCertificate> clientCerts = new List<ClientCertificate>();
+            List<ManagedClusterClientCertificate> clientCerts = new List<ManagedClusterClientCertificate>();
             if (this.ParameterSetName == ClientCertByTp)
             {
-                clientCerts.Add(new ClientCertificate()
+                clientCerts.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
                 {
-                    Thumbprint = this.ClientCertThumbprint,
-                    IsAdmin = this.ClientCertIsAdmin.IsPresent
+                    Thumbprint = BinaryData.FromString(this.ClientCertThumbprint),
                 });
             }
             else if (this.ParameterSetName == ClientCertByCn)
             {
-                clientCerts.Add(new ClientCertificate()
+                clientCerts.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
                 {
                     CommonName = this.ClientCertCommonName,
-                    IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? string.Join(",", this.ClientCertIssuerThumbprint) : null,
-                    IsAdmin = this.ClientCertIsAdmin.IsPresent
+                    IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? BinaryData.FromString(string.Join(",", this.ClientCertIssuerThumbprint)) : null,
                 });
             }
 
@@ -224,22 +241,22 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 this.DnsName = this.Name;
             }
 
-            var newCluster = new ManagedCluster(
-                location: this.Location,
-                dnsName: this.DnsName,
-                clients: clientCerts,
-                adminUserName: this.AdminUserName,
-                adminPassword: this.AdminPassword.ConvertToString(),
-                httpGatewayConnectionPort: this.HttpGatewayConnectionPort,
-                clientConnectionPort: this.ClientConnectionPort,
-                sku: new Sku(name: this.Sku.ToString()),
-                clusterUpgradeMode: this.UpgradeMode.ToString(),
-                clusterUpgradeCadence: this.UpgradeCadence.ToString(),
-                zonalResiliency: this.ZonalResiliency.IsPresent,
-                tags: this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string)
-            );
+            var newCluster = new ServiceFabricManagedClusterData(
+                location: this.Location);
 
-            if (this.UpgradeMode == Models.ClusterUpgradeMode.Manual)
+            newCluster.DnsName = this.DnsName;
+            newCluster.Clients.Concat(clientCerts);
+            newCluster.AdminUserName = this.AdminUserName;
+            newCluster.AdminPassword = this.AdminPassword.ToString();
+            newCluster.HttpGatewayConnectionPort = this.HttpGatewayConnectionPort;
+            newCluster.ClientConnectionPort = this.ClientConnectionPort;
+            newCluster.SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString());
+            newCluster.ClusterUpgradeMode = this.UpgradeMode.ToString();
+            newCluster.ClusterUpgradeCadence = this.UpgradeCadence.ToString();
+            newCluster.HasZoneResiliency = this.ZonalResiliency.IsPresent;
+            newCluster.Tags.Add(this.Tag);
+
+            if (this.UpgradeMode == ClusterUpgradeMode.Manual)
             {
                 newCluster.ClusterCodeVersion = this.CodeVersion;
             }

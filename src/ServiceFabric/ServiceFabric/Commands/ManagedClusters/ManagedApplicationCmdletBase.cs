@@ -27,6 +27,8 @@ using Azure.ResourceManager;
 using Azure;
 using Microsoft.Azure.Management.ServiceFabric.Models;
 using Microsoft.Extensions.Azure;
+using System.Collections.Generic;
+using Azure.ResourceManager.Resources.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -52,7 +54,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [ValidateNotNullOrEmpty]
         public virtual string ClusterName { get; set; }
 
-        protected ServiceFabricManagedApplicationTypeResource CreateManagedApplicationType(string applicationTypeName, string location, Hashtable tags = null, bool errorIfPresent = true)
+        protected ServiceFabricManagedApplicationTypeResource CreateManagedApplicationType(string applicationTypeName, string location, KeyValuePair<string, string> tags, bool errorIfPresent = true)
         {
             ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id, 
@@ -61,7 +63,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 applicationTypeName); 
 
             ServiceFabricManagedApplicationTypeResource applicationType = SafeGetResource(() => 
-                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationTypeResourceId));
+                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId));
 
             if (applicationType != null)
             {
@@ -79,90 +81,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
             else
             {
-                /*WriteVerbose($"Creating managed app type '{applicationTypeName}'.");
-                ApplicationTypeResource newAppTypeParams = this.GetNewAppTypeParameters(location, tags:tags);
-                return this.SfrpMcClient.ApplicationTypes.CreateOrUpdate(this.ResourceGroupName, this.ClusterName, applicationTypeName, newAppTypeParams);
-*/
-                ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                              this.DefaultContext.Subscription.Id,
-                              this.ResourceGroupName,
-                              this.ClusterName);
-
-                ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+                ServiceFabricManagedClusterResource serviceFabricManagedCluster = GetManagedClusterResource(this.ResourceGroupName, this.ClusterName);
                 ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
+
                 var data = new ServiceFabricManagedApplicationTypeData(new AzureLocation(location));
+                data.Tags.Add(tags);
+
                 ArmOperation<ServiceFabricManagedApplicationTypeResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, applicationTypeName, data).GetAwaiter().GetResult();
                 var result =  lro.Value;
                 return result;
             }
         }
 
-        /*private ApplicationTypeResource GetNewAppTypeParameters(string location, Hashtable tags = null)
-        {
-            return new ApplicationTypeResource(
-                location: location,
-                tags: tags?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string));
-        }*/
-
-
-        /*protected ApplicationTypeVersionResource CreateManagedApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, bool force, Hashtable tags = null)
-        {
-            *//*var appTypeVersion = SafeGetResource(() =>
-                this.SfrpMcClient.ApplicationTypeVersions.Get(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    applicationTypeName,
-                    typeVersion),
-                false);*//*
-            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
-            ServiceFabricManagedApplicationTypeResource applicationTypeVersion = SafeGetResource(() => this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedClusterResourceId));
-
-
-            if (applicationTypeVersion != null)
-            {
-                if (appTypeVersion.ProvisioningState == "Failed")
-                {
-                    WriteVerbose($"Managed application type version '{applicationTypeName}':{typeVersion} already exists.");
-                    string resourceMessage = $"Managed ApplicationTypeVersion {applicationTypeName}:{typeVersion}";
-                    ConfirmAction(force,
-                        $"{resourceMessage} already exits but provisioning is in Failed state. Do you want to recreate the resource?",
-                        "Recreating managed application type version.",
-                        resourceMessage,
-                        () =>
-                        {
-                            appTypeVersion = CreateOrUpdateApplicationTypeVersion(
-                                applicationTypeName: applicationTypeName,
-                                typeVersion: typeVersion,
-                                location: location,
-                                packageUrl: packageUrl,
-                                tags: tags);
-                        });
-                }
-                else
-                {
-                    WriteError(new ErrorRecord(new InvalidOperationException($"Managed app type version '{applicationTypeName}' already exists."),
-                        "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
-                }
-            }
-            else
-            {
-                appTypeVersion = CreateOrUpdateApplicationTypeVersion(
-                    applicationTypeName: applicationTypeName,
-                    typeVersion: typeVersion,
-                    location: location,
-                    packageUrl: packageUrl,
-                    tags: tags);
-            }
-
-            if (appTypeVersion.ProvisioningState == "Failed")
-            {
-                throw new PSInvalidOperationException($"Managed ApplicationTypeVersion {applicationTypeName}:{typeVersion} is in provisioning state {appTypeVersion.ProvisioningState}");
-            }
-
-            return appTypeVersion;
-        }*/
-
-        protected ServiceFabricManagedApplicationTypeVersionResource CreateManagedApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, bool force, Hashtable tags = null)
+        protected ServiceFabricManagedApplicationTypeVersionResource CreateManagedApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, bool force, KeyValuePair<string, string> tags)
         {
             ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id, 
@@ -172,7 +103,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 typeVersion);
              
             ServiceFabricManagedApplicationTypeVersionResource applicationTypeVersion = SafeGetResource(() => 
-                this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedApplicationTypeVersionResourceId));
+                this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource( serviceFabricManagedApplicationTypeVersionResourceId));
 
 
             if (applicationTypeVersion != null)
@@ -219,22 +150,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return applicationTypeVersion;
         }
 
-        /*private ApplicationTypeVersionResource CreateOrUpdateApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, Hashtable tags)
-        {
-            WriteVerbose($"Creating managed app type version '{applicationTypeName}':{typeVersion}.");
-            ApplicationTypeVersionResource managedAppTypeVersionParams = this.GetNewAppTypeVersionParameters(applicationTypeName, location, packageUrl, tags);
-
-            var beginRequestResponse = this.SfrpMcClient.ApplicationTypeVersions.BeginCreateOrUpdateWithHttpMessagesAsync(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    applicationTypeName,
-                    typeVersion,
-                    managedAppTypeVersionParams).GetAwaiter().GetResult();
-
-            return this.PollLongRunningOperation(beginRequestResponse);
-        }*/
-
-        private ServiceFabricManagedApplicationTypeVersionResource CreateOrUpdateApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, Hashtable tags)
+        private ServiceFabricManagedApplicationTypeVersionResource CreateOrUpdateApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, KeyValuePair<string, string> tags)
         {
             WriteVerbose($"Creating managed app type version '{applicationTypeName}':{typeVersion}.");
 
@@ -246,17 +162,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             var serviceFabricManagedApplicationType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
 
-            // get the collection of this ServiceFabricManagedApplicationTypeVersionResource
             ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicationType.GetServiceFabricManagedApplicationTypeVersions();
 
-            // invoke the operation
-            //string version = "1.0";
-            //ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName, applicationTypeName, version);
             ServiceFabricManagedApplicationTypeVersionData data = new ServiceFabricManagedApplicationTypeVersionData(new AzureLocation(location))
             {
                 AppPackageUri = new Uri(packageUrl),
             };
-         
+
+            data.Tags.Add(tags);
+
 
             ArmOperation<ServiceFabricManagedApplicationTypeVersionResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, typeVersion, data).GetAwaiter().GetResult();
             ServiceFabricManagedApplicationTypeVersionResource result = lro.Value;
@@ -264,14 +178,28 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return result;
         }
 
-        /*private ApplicationTypeVersionResource GetNewAppTypeVersionParameters(string applicationTypeName, string location, string packageUrl, Hashtable tags)
+        /*protected ServiceFabricManagedApplicationTypeVersionData GetApplicationTypeVersionParameters(
+            string appTypeName, 
+            string resourceGroupName,
+            string clusterName, string packageUrl,
+            KeyValuePair<string, string> tags,
+            string location)
         {
-            return new ApplicationTypeVersionResource(
-                    appPackageUrl: packageUrl,  
-                    name: this.ClusterName,
-                    type: applicationTypeName,
-                    location: location,
-                    tags: tags?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string));
+            var serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id,
+                resourceGroupName,
+                clusterName,
+                appTypeName);
+
+        
+            ServiceFabricManagedApplicationTypeVersionData data = new ServiceFabricManagedApplicationTypeVersionData(new AzureLocation(location))
+            {
+                AppPackageUri = new Uri(packageUrl),
+            };
+
+            data.Tags.Add(tags);
+
+            return data;
         }*/
     }
 }

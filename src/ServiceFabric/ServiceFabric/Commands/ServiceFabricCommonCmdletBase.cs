@@ -143,7 +143,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 throw;
             }
-            catch (Management.ServiceFabricManagedClusters.Models.ErrorModelException e)
+            /*catch (Management.ServiceFabricManagedClusters.Models.ErrorModelException e)
             {
                 if ((e.Body?.Error != null &&
                     (e.Body.Error.Code.Equals("ResourceGroupNotFound", StringComparison.OrdinalIgnoreCase) ||
@@ -161,7 +161,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 }
 
                 throw;
-            }
+            }*/
             catch (Exception e)
             {
                 if (ingoreAllError)
@@ -195,8 +195,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
 
             while (!(exception is CloudException || 
-                     exception is Management.ServiceFabric.Models.ErrorModelException || 
-                     exception is Management.ServiceFabricManagedClusters.Models.ErrorModelException) 
+                     exception is Management.ServiceFabric.Models.ErrorModelException /*|| 
+                     exception is Management.ServiceFabricManagedClusters.Models.ErrorModelException*/) 
                    && exception.InnerException != null)
             {
                 exception = exception.InnerException;
@@ -213,7 +213,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         new ErrorRecord(ex, string.Empty, ErrorCategory.NotSpecified, null));
                 }
             }
-            else if (exception is Management.ServiceFabricManagedClusters.Models.ErrorModelException)
+            /*else if (exception is Management.ServiceFabricManagedClusters.Models.ErrorModelException)
             {
                 var errorModelException = (Management.ServiceFabricManagedClusters.Models.ErrorModelException)exception;
                 if (errorModelException.Body != null)
@@ -237,7 +237,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                             new ErrorRecord(ex, string.Empty, ErrorCategory.NotSpecified, null));
                     }
                 }
-            }
+            }*/
             else if (exception is Management.ServiceFabric.Models.ErrorModelException)
             {
                 var errorModelException = (Management.ServiceFabric.Models.ErrorModelException)exception;
@@ -295,7 +295,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return message;
         }
 
-        private string GetErrorModelErrorMessage(Management.ServiceFabricManagedClusters.Models.ErrorModel error)
+        /*private string GetErrorModelErrorMessage(Management.ServiceFabricManagedClusters.Models.ErrorModel error)
         {
             if (error == null || error.Error == null)
             {
@@ -309,7 +309,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 Environment.NewLine);
 
             return message;
-        }
+        }*/
 
         private string GetErrorModelErrorMessage(Management.ServiceFabric.Models.ErrorModel error)
         {

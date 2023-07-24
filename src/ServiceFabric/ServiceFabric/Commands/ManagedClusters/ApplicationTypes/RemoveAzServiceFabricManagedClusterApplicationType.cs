@@ -20,7 +20,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {

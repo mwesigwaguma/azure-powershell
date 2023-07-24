@@ -12,13 +12,18 @@
 // ----------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading.Tasks;
+using Azure.Core;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -55,22 +60,30 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 switch(ParameterSetName)
                 {
                     case ByName:
-                        var cluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
-                        WriteObject(new PSManagedCluster(cluster), false);
+                        
+                        ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.Name);
+                        ServiceFabricManagedClusterResource clusterResource = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+                        
+                        WriteObject(new PSManagedCluster(clusterResource.Data), false);
                         break;
                     case ByResourceGroup:
-                        var clusterList = this.ReturnListByPageResponse(
+                        /*var clusterList = this.ReturnListByPageResponse(
                             this.SfrpMcClient.ManagedClusters.ListByResourceGroup(this.ResourceGroupName),
-                            this.SfrpMcClient.ManagedClusters.ListByResourceGroupNext);
+                            this.SfrpMcClient.ManagedClusters.ListByResourceGroupNext);*/
 
-                        WriteObject(clusterList.Select(c => new PSManagedCluster(c)), true);
-                        break;
+                       /* var clusterList = GetClusterList();
+                        WriteObject(clusterList, true);
+
+                        break;*/
                     case BySubscription:
-                        var cluster2List = this.ReturnListByPageResponse(
+                        /*var cluster2List = this.ReturnListByPageResponse(
                             this.SfrpMcClient.ManagedClusters.ListBySubscription(),
-                            this.SfrpMcClient.ManagedClusters.ListBySubscriptionNext);
+                            this.SfrpMcClient.ManagedClusters.ListBySubscriptionNext);*/
 
-                        WriteObject(cluster2List.Select(c => new PSManagedCluster(c)), true);
+                        var clusterList = GetClusterList();
+                        WriteObject(clusterList, true);
+
+                        //WriteObject(cluster2List.Select(c => new PSManagedCluster(c)), true);
                         break;
                 }
             }
@@ -79,6 +92,26 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 PrintSdkExceptionDetail(ex);
                 throw;
             }
+        }
+
+        private async Task<List<ServiceFabricManagedClusterData>> GetClusterList()
+        {
+            ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id, 
+                this.ResourceGroupName);
+
+            ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
+
+            // get the collection of this ServiceFabricManagedClusterResource
+            ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+            List<ServiceFabricManagedClusterData> clusterList = new List<ServiceFabricManagedClusterData>();
+            // invoke the operation and iterate over the result
+            await foreach (ServiceFabricManagedClusterResource item in collection.GetAllAsync())
+            {
+                clusterList.Add(item.Data);
+            }
+
+            return clusterList;
         }
     }
 }

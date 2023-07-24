@@ -13,12 +13,15 @@
 // ----------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using System.Threading.Tasks;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
+using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -66,10 +69,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppList = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.Applications.List(this.ResourceGroupName, this.ClusterName),
-                            this.SfrpMcClient.Applications.ListNext);
-                        WriteObject(managedAppList.Select(app => new PSManagedApplication(app)), true);
+                        var managedAppTypeList = GetApplications().GetAwaiter().GetResult();
+                        WriteObject(managedAppTypeList, true);
                         break;
                     case ByName:
                         GetByName();
@@ -91,8 +92,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void GetByName()
         {
-            var managedApp = this.SfrpMcClient.Applications.Get(this.ResourceGroupName, this.ClusterName, this.Name);
-            WriteObject(new PSManagedApplication(managedApp), false);
+            var collection = GetManagedApplicationCollection();
+            ServiceFabricManagedApplicationResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+
+            WriteObject(result.Data, false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -101,6 +104,31 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ResourceGroupName = resourceGroup;
             this.Name = resourceName;
             this.ClusterName = parentResourceName;
+        }
+
+        private async Task<List<ServiceFabricManagedApplicationData>> GetApplications()
+        {
+            var collection = GetManagedApplicationCollection();
+            List<ServiceFabricManagedApplicationData> applications = new List<ServiceFabricManagedApplicationData>();
+
+            await foreach (ServiceFabricManagedApplicationResource item in collection.GetAllAsync())
+            {
+                applications.Add(item.Data);
+            }
+
+            return applications;
+        }
+
+        private ServiceFabricManagedApplicationCollection GetManagedApplicationCollection()
+        {
+            //ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
+            ResourceIdentifier serviceFabricManagedClusterResourceId = new ResourceIdentifier(this.ResourceId);
+            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+
+            // get the collection of this ServiceFabricManagedApplicationTypeResource
+            ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
+
+            return collection;
         }
     }
 }

@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
 using Azure;
@@ -25,8 +26,6 @@ using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -82,7 +81,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = CreateAppTypeVersion,
             HelpMessage = "Specify the application parameters as key/value pairs. These parameters must exist in the application manifest.")]
         [ValidateNotNullOrEmpty]
-        public Hashtable ApplicationParameter { get; set; }
+        public KeyValuePair<string, string> ApplicationParameter { get; set; }
 
         [Parameter(Mandatory = true, ValueFromPipelineByPropertyName = true, ParameterSetName = CreateAppTypeVersion,
             HelpMessage = "Specify the url of the application package sfpkg file")]
@@ -91,7 +90,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = false, ValueFromPipeline = true, ParameterSetName = SkipAppTypeVersion, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipeline = true, ParameterSetName = CreateAppTypeVersion, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Continue without prompts")]
         public SwitchParameter Force { get; set; }
@@ -107,14 +106,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
-
-
-                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
-                    ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-
-                    // get the collection of this ServiceFabricManagedClusterResource
-                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+                    var collection = GetManagedApplicationCollection();
                     ServiceFabricManagedClusterResource cluster = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
                     //ServiceFabricManagedClusterData resourceData = cluster.Data;
 
@@ -137,8 +129,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         }
 
                         var managedApp = CreateManagedApplication(cluster.Data.Location);
-                        //WriteObject(new PSManagedApplication(managedApp), false);
-                        WriteObject(managedApp.Data);
+                        WriteObject(new PSManagedApplication(managedApp.Data), false);
                     }
                 }
                 catch (Exception ex)
@@ -151,13 +142,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedApplicationResource CreateManagedApplication(string location)
         {
-            /*var managedApp = SafeGetResource(() =>
-                this.SfrpMcClient.Applications.Get(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    this.Name),
-                false);*/
-
             ResourceIdentifier serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id, 
                 this.ResourceGroupName, 
@@ -165,7 +149,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 this.Name );
 
             ServiceFabricManagedApplicationResource managedApp = SafeGetResource(() => 
-                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
+                this.ArmClient.GetServiceFabricManagedApplicationResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
 
 
             if (managedApp != null)
@@ -177,64 +161,39 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             WriteVerbose($"Creating managed application '{this.Name}'");
 
-            //ApplicationResource appParams = GetNewAppParameters(location);
+            // get the collection of this ServiceFabricManagedApplicationResource
+            var  collection = GetManagedApplicationCollection();
+            // invoke the operation
 
+            ServiceFabricManagedApplicationData data = GetNewApplicationParameters(serviceFabricManagedApplicationResourceId, location);
 
+            ArmOperation<ServiceFabricManagedApplicationResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, data).GetAwaiter().GetResult();
+            ServiceFabricManagedApplicationResource result = lro.Value;
+
+            return result;
+        }
+
+        private ServiceFabricManagedApplicationCollection GetManagedApplicationCollection( )
+        {
             ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id, 
                 this.ResourceGroupName, 
                 this.ClusterName);
 
             ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
 
-            // get the collection of this ServiceFabricManagedApplicationResource
-            ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplications();
-
-
-            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
-                this.DefaultContext.Subscription.Id, 
-                this.ResourceGroupName, 
-                this.ClusterName, 
-                this.ApplicationTypeVersion);
-
-            // invoke the operation
-            ServiceFabricManagedApplicationData data = new ServiceFabricManagedApplicationData(new AzureLocation(location))
-            {
-                Version = serviceFabricManagedApplicationTypeResourceId.ToString(),
-            };
-
-            ArmOperation<ServiceFabricManagedApplicationResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, data).GetAwaiter().GetResult();
-            ServiceFabricManagedApplicationResource result = lro.Value;
-
-
-
-            /*var beginRequestResponse = this.SfrpMcClient.Applications.BeginCreateOrUpdateWithHttpMessagesAsync(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    this.Name,
-                    appParams).GetAwaiter().GetResult();*/
-
-            //lro.GetRawResponse().;
-
-            //return this.PollLongRunningOperation(beginRequestResponse);
-
-            return result;
+            return collection;
         }
 
-       /* private ApplicationResource GetNewAppParameters(string location)
+        private ServiceFabricManagedApplicationData GetNewApplicationParameters(ResourceIdentifier resourceId, string location)
         {
-            return new ApplicationResource(
-                    name: this.Name,
-                    version: this.GetAppTypeArmResourceId(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName, this.ApplicationTypeName, this.ApplicationTypeVersion),
-                    parameters: this.ApplicationParameter?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string),
-                    location: location,
-                    tags: this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string));
-        }
-*/
-        /*private string GetAppTypeArmResourceId(string subscriptionId, string resourceGroup, string clusterName, string appTypeName, string appTypeVersion)
-        {
-            return string.Format(AppTypeArmResourceIdFormat, subscriptionId, resourceGroup, clusterName, appTypeName, appTypeVersion);
-        }*/
+            ServiceFabricManagedApplicationData data = new ServiceFabricManagedApplicationData(new AzureLocation(location));
+            data.Tags.Add(this.Tag);
+            data.Parameters.Add(this.ApplicationParameter);
+            data.Version = resourceId.ToString();
 
+            return data;
+        }
     }
 }

@@ -12,14 +12,14 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
-    public class PSManagedCluster : ManagedCluster
+    public class PSManagedCluster : ServiceFabricManagedClusterData
     {
-        public PSManagedCluster(ManagedCluster cluster)
-            : base(location: cluster.Location,
+        public PSManagedCluster(ServiceFabricManagedClusterData cluster)
+            /*: base(location: cluster.Location,
                    id: cluster.Id,
                    name: cluster.Name,
                    type: cluster.Type,
@@ -49,7 +49,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Models
                    sku: cluster.Sku,
                    zonalResiliency: cluster.ZonalResiliency,
                    allowRdpAccess: cluster.AllowRdpAccess,
-                   enableAutoOSUpgrade: cluster.EnableAutoOSUpgrade)
+                   enableAutoOSUpgrade: cluster.EnableAutoOSUpgrade)*/
+            :base(cluster.Location)
         {
         }
     }

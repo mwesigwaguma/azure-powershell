@@ -14,12 +14,12 @@
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
-    using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+    using global::Azure.ResourceManager.ServiceFabricManagedClusters;
 
-    public class PSManagedApplication : ApplicationResource
+    public class PSManagedApplication : ServiceFabricManagedApplicationData
     {
-        public PSManagedApplication(ApplicationResource app)
-            : base(
+        public PSManagedApplication(ServiceFabricManagedApplicationData app)
+            /*: base(
                   id: app.Id,
                   name: app.Name,
                   type: app.Type,
@@ -30,7 +30,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Models
                   upgradePolicy: app.UpgradePolicy,
                   provisioningState: app.ProvisioningState,
                   identity: app.Identity,
-                  managedIdentities: app.ManagedIdentities)
+                  managedIdentities: app.ManagedIdentities)*/
+        :base(app.Location)
         {
         }
     }

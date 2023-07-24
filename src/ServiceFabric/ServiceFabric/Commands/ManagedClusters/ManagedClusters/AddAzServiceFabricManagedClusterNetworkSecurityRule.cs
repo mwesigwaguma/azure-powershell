@@ -14,13 +14,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Management.Automation;
+using Azure.ResourceManager;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -97,13 +101,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			{
 				try
 				{
-					ManagedCluster updatedCluster = this.GetClusterWithNewNetworkSecurityRule();
-					var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, updatedCluster)
-						.GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithNewNetworkSecurityRule();
 
-					var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    // ?????????????????????????????????
+                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
 
-					WriteObject(new PSManagedCluster(cluster), false);
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+
+                    var lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = lro.Value;
+
+                    // ??????????????????????????????
+                    // var cluster = this.PollLongRunningOperation(beginRequestResponse);
+
+                    WriteObject(new PSManagedCluster(result.Data), false);
 				}
 				catch (Exception ex)
 				{
@@ -113,30 +124,32 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			}
 		}
 
-		private ManagedCluster GetClusterWithNewNetworkSecurityRule()
+		private ServiceFabricManagedClusterData GetClusterWithNewNetworkSecurityRule()
 		{
-			ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName);
+            // currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName);
 
-			if (currentCluster.NetworkSecurityRules == null)
-			{
-				currentCluster.NetworkSecurityRules = new List<NetworkSecurityRule>();
-			}
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+            ServiceFabricManagedClusterResource result = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterData currentCluster = result.Data;
 
-			currentCluster.NetworkSecurityRules.Add(new NetworkSecurityRule()
-			{
-				Access = this.Access.ToString(),
-				Description = this.Description,
-				DestinationAddressPrefixes = this.DestinationAddressPrefix,
-				DestinationPortRanges = this.DestinationPortRange,
-				Direction = this.Direction.ToString(),
-				Name = this.Name,
-				Priority = this.Priority,
-				Protocol = this.Protocol == NetworkSecurityProtocol.any? AnyTrueValue : this.Protocol.ToString(),
-				SourceAddressPrefixes = this.SourceAddressPrefix,
-				SourcePortRanges = this.SourcePortRange
-			});
+            ServiceFabricManagedNetworkSecurityRule newNetworkSecurityRule = new ServiceFabricManagedNetworkSecurityRule(
+                name : this.Name,
+                protocol: this.Protocol == NetworkSecurityProtocol.any ? AnyTrueValue : this.Protocol.ToString(),
+                access: this.Access.ToString(),
+                priority: this.Priority,
+                direction: this.Direction.ToString()
+                 
+                );
 
-			return currentCluster;
+			newNetworkSecurityRule.DestinationAddressPrefixes.Add(string.Join(" ", this.DestinationAddressPrefix));
+			newNetworkSecurityRule.DestinationPortRanges.Add(string.Join(" ", this.DestinationPortRange));
+			newNetworkSecurityRule.SourceAddressPrefixes.Add(string.Join(" ", this.SourceAddressPrefix));
+			newNetworkSecurityRule.SourcePortRanges.Add(string.Join(" ", this.SourcePortRange));
+
+
+			currentCluster.NetworkSecurityRules.Add(newNetworkSecurityRule);
+
+            return currentCluster;
 		}
 
 		private void SetParams()

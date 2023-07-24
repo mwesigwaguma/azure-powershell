@@ -18,8 +18,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using System;
 using System.Collections;
 using System.Management.Automation;
@@ -60,7 +58,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 {
                     //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
 
-                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
+                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id, 
+                        this.ResourceGroupName);
+
                     ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
 
                     // get the collection of this ServiceFabricManagedClusterResource

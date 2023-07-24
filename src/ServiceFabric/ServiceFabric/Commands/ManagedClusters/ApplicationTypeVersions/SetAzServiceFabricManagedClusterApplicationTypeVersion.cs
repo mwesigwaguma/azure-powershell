@@ -14,13 +14,18 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.Core;
+using Azure.ResourceManager;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -28,6 +33,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
     [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(typeof(PSManagedApplicationTypeVersion))]
     public class SetAzServiceFabricManagedClustersApplicationTypeVersion : ManagedApplicationCmdletBase
     {
+
+        private ServiceFabricManagedApplicationTypeVersionResource currentAppTypeVersionResource;
         private const string ByResourceGroup = "ByResourceGroup";
         private const string ByInputObject = "ByInputObject";
         private const string ByResourceId = "ByResourceId";
@@ -69,7 +76,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceGroup, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceId, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByInputObject, HelpMessage = "Specify the tags as key/value pairs.")]
-        public Hashtable Tag { get; set; }
+        public KeyValuePair<string, string> Tag { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByResourceId, ValueFromPipelineByPropertyName = true,
             HelpMessage = "Arm ResourceId of the managed application type version.")]
@@ -93,7 +100,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                ApplicationTypeVersionResource updatedAppTypeVersionParams = null;
+                ServiceFabricManagedApplicationTypeVersionData updatedAppTypeVersionParams = null;
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
@@ -109,12 +116,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeVersionParams != null && ShouldProcess(target: this.Version, action: $"Update managed application type version. typename: {this.Name}, version {this.Version} in resource group {this.ResourceGroupName}"))
                 {
-                    var beginRequestResponse = this.SfrpMcClient.ApplicationTypeVersions.BeginCreateOrUpdateWithHttpMessagesAsync(
-                        this.ResourceGroupName, this.ClusterName, this.Name, this.Version, updatedAppTypeVersionParams).GetAwaiter().GetResult();
+                    ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id, 
+                        this.ResourceGroupName, 
+                        this.ClusterName, 
+                        this.Name);
 
-                    var managedAppTypeVersion = this.PollLongRunningOperation(beginRequestResponse);
+                    ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicationType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
 
-                    WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion), false);
+                    // get the collection of this ServiceFabricManagedApplicationTypeVersionResource
+                    ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicationType.GetServiceFabricManagedApplicationTypeVersions();
+                    ArmOperation<ServiceFabricManagedApplicationTypeVersionResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Version, updatedAppTypeVersionParams).GetAwaiter().GetResult();
+                    ServiceFabricManagedApplicationTypeVersionResource managedAppTypeVersion = lro.Value;
+
+                    WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion.Data), false);
                 }
             }
             catch (Exception ex)
@@ -124,42 +139,50 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ApplicationTypeVersionResource GetUpdatedAppTypeVersionParams(ApplicationTypeVersionResource inputObject = null)
+        private ServiceFabricManagedApplicationTypeVersionData GetUpdatedAppTypeVersionParams(ServiceFabricManagedApplicationTypeVersionData inputObject = null)
         {
-            ApplicationTypeVersionResource currentAppTypeVersion;
+            ServiceFabricManagedApplicationTypeVersionData currentAppTypeVerionData;
 
             if (inputObject == null)
             {
-                currentAppTypeVersion = SafeGetResource(() =>
-                    this.SfrpMcClient.ApplicationTypeVersions.Get(
-                        this.ResourceGroupName, 
-                        this.ClusterName, 
-                        this.Name, 
-                        this.Version),
-                    false);
+                ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(
+               this.DefaultContext.Subscription.Id,
+               this.ResourceGroupName,
+               this.ClusterName,
+               this.Name,
+               this.Version);
 
-                if (currentAppTypeVersion == null)
+                currentAppTypeVersionResource = SafeGetResource(() =>
+                    this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedApplicationTypeVersionResourceId));
+
+
+
+                if (currentAppTypeVersionResource == null)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                    return currentAppTypeVersion;
+                    return null;
                 }
+
+                currentAppTypeVerionData = currentAppTypeVersionResource.Data;
+
             }
             else
             {
-                currentAppTypeVersion = inputObject;
+                currentAppTypeVerionData = inputObject;
             }
 
             if (this.IsParameterBound(c => c.PackageUrl))
             {
-                currentAppTypeVersion.AppPackageUrl = this.PackageUrl;
-            }
-            if (this.IsParameterBound(c => c.Tag))
-            {
-                currentAppTypeVersion.Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentAppTypeVerionData.AppPackageUri = new Uri(this.PackageUrl);
             }
 
-            return currentAppTypeVersion;
+            if (this.IsParameterBound(c => c.Tag))
+            {
+                currentAppTypeVerionData.Tags.Add(this.Tag);
+            }
+
+            return currentAppTypeVerionData;
         }
 
         private void SetParams()

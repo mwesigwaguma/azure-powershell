@@ -12,14 +12,14 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
-    public class PSManagedNodeType : NodeType
+    public class PSManagedNodeType : ServiceFabricManagedNodeTypeData
     {
-        public PSManagedNodeType(NodeType nodeType)
-            : base(id: nodeType.Id,
+        public PSManagedNodeType(ServiceFabricManagedNodeTypeData nodeType)
+            /*: base(id: nodeType.Id,
                    name: nodeType.Name,
                    type: nodeType.Type,
                    tags: nodeType.Tags,
@@ -41,7 +41,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Models
                    vmExtensions: nodeType.VmExtensions,
                    vmManagedIdentity: nodeType.VmManagedIdentity,
                    isStateless: nodeType.IsStateless,
-                   multiplePlacementGroups: nodeType.MultiplePlacementGroups)
+                   multiplePlacementGroups: nodeType.MultiplePlacementGroups)*/
+            :base()
         {
         }
     }

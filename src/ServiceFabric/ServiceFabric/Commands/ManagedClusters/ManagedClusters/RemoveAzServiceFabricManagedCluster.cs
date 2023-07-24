@@ -13,9 +13,13 @@
 
 using System;
 using System.Management.Automation;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure;
+using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
+using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -66,11 +70,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginDeleteWithHttpMessagesAsync(
-                                                    this.ResourceGroupName,
-                                                    this.Name).GetAwaiter().GetResult();
+                    ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id, 
+                        this.ResourceGroupName, 
+                        this.Name);
 
-                    this.PollLongRunningOperation(beginRequestResponse);
+                    ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+
+                    // invoke the operation
+                    serviceFabricManagedCluster.DeleteAsync(WaitUntil.Completed).Wait();
+
+                    // ???????????????????????
+                    //this.PollLongRunningOperation(beginRequestResponse);
 
                     if (this.PassThru)
                     {

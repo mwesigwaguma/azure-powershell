@@ -14,9 +14,12 @@
 
 using System;
 using System.Management.Automation;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
+using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -107,13 +110,28 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var beginRequestResponse = this.SfrpMcClient.ApplicationTypeVersions.BeginDeleteWithHttpMessagesAsync(
+
+                            /*var beginRequestResponse = this.SfrpMcClient.ApplicationTypeVersions.BeginDeleteWithHttpMessagesAsync(
                                     this.ResourceGroupName,
                                     this.ClusterName,
                                     this.Name,
                                     this.Version).GetAwaiter().GetResult();
 
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            this.PollLongRunningOperation(beginRequestResponse);*/
+
+                            ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(
+                                this.DefaultContext.Subscription.Id,
+                                this.ResourceGroupName,
+                                this.ClusterName,
+                                this.Name,
+                                this.Version);
+
+                            ServiceFabricManagedApplicationTypeVersionResource applicationTypeVersion = SafeGetResource(() =>
+                                this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedApplicationTypeVersionResourceId));
+
+                            applicationTypeVersion?.DeleteAsync(WaitUntil.Completed).Wait();
+
+
                             if (PassThru)
                             {
                                 WriteObject(true);

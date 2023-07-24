@@ -13,12 +13,16 @@
 // ----------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using System.Threading.Tasks;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
+using Azure.Core;
+using Microsoft.Azure.Commands.Common.Strategies;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -74,10 +78,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppTypeVersionList = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.ApplicationTypeVersions.ListByApplicationTypes(this.ResourceGroupName, this.ClusterName, this.Name),
-                            this.SfrpMcClient.ApplicationTypeVersions.ListByApplicationTypesNext);
-                        WriteObject(managedAppTypeVersionList.Select(appType => new PSManagedApplicationTypeVersion(appType)), true);
+                        var managedAppTypeVersionList = GetApplicationTypeVersions().GetAwaiter().GetResult();
+                        WriteObject(managedAppTypeVersionList, true);
                         break;
                     case ByVersion:
                         GetByVersion();
@@ -99,8 +101,21 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void GetByVersion()
         {
-            var managedAppTypeVersion = this.SfrpMcClient.ApplicationTypeVersions.Get(this.ResourceGroupName, this.ClusterName, this.Name, this.Version);
-            WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion), false);
+            //var managedAppTypeVersion = this.SfrpMcClient.ApplicationTypeVersions.Get(this.ResourceGroupName, this.ClusterName, this.Name, this.Version);
+
+            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id, 
+                this.ResourceGroupName, 
+                this.ClusterName, 
+                this.Name);
+
+            ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicationType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
+
+            // get the collection of this ServiceFabricManagedApplicationTypeVersionResource
+            ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicationType.GetServiceFabricManagedApplicationTypeVersions();
+            ServiceFabricManagedApplicationTypeVersionResource managedAppTypeVersion = collection.GetAsync(this.Version).GetAwaiter().GetResult();
+
+            WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion.Data), false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -110,6 +125,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.Name = parentResourceName;
             this.Version = resourceName;
             this.ClusterName = grandParentResourceName;
+        }
+
+
+        private async Task<List<ServiceFabricManagedApplicationTypeVersionData>> GetApplicationTypeVersions()
+        {
+            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
+            ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicatioinType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
+
+            // get the collection of this ServiceFabricManagedApplicationTypeResource
+            ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicatioinType.GetServiceFabricManagedApplicationTypeVersions();
+            //var managedAppTypeList = collection.GetAllAsync();
+            List<ServiceFabricManagedApplicationTypeVersionData> appTypeVersions = new List<ServiceFabricManagedApplicationTypeVersionData>();
+
+            await foreach (ServiceFabricManagedApplicationTypeVersionResource item in collection.GetAllAsync())
+            {
+                appTypeVersions.Add(item.Data);
+            } 
+
+            return appTypeVersions;
         }
     }
 }

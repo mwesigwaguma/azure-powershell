@@ -18,7 +18,6 @@ using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.Common.Strategies;
@@ -73,17 +72,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-
-                        /* var managedAppTypeList = this.ReturnListByPageResponse(
-                             this.SfrpMcClient.ApplicationTypes.List(this.ResourceGroupName, this.ClusterName),
-                             this.SfrpMcClient.ApplicationTypes.ListNext);*/
-
-                        //WriteObject(managedAppTypeList.Select(appType => new PSManagedApplicationType(appType)), true);
-
                         var managedAppTypeList = GetApplicationTypes().GetAwaiter().GetResult();
                         WriteObject(managedAppTypeList, true);
-
-
                         break;
                     case ByName:
                         GetByName();
@@ -129,7 +119,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             // get the collection of this ServiceFabricManagedApplicationTypeResource
             ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
-            var managedAppTypeList = collection.GetAllAsync();
+            //var managedAppTypeList = collection.GetAllAsync();
             List<ServiceFabricManagedApplicationTypeData> appTypes = new List<ServiceFabricManagedApplicationTypeData>();
 
             await foreach (ServiceFabricManagedApplicationTypeResource item in collection.GetAllAsync())
@@ -140,4 +130,4 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return appTypes;
         }
     }
-}
+} 

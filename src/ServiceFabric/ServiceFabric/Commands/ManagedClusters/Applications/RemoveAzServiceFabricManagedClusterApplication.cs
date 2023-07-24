@@ -14,9 +14,12 @@
 
 using System;
 using System.Management.Automation;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
+using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -75,8 +78,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             switch (ParameterSetName)
             {
                 case ByInputObject:
-                    this.ResourceId = InputObject.Id;
-                    SetParametersByResourceId(this.ResourceId);
+                    //this.ResourceId = InputObject.Id;
+                    //SetParametersByResourceId(this.ResourceId);
                     break;
                 case ByResourceId:
                     SetParametersByResourceId(this.ResourceId);
@@ -99,12 +102,17 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var beginRequestResponse = this.SfrpMcClient.Applications.BeginDeleteWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.Name).GetAwaiter().GetResult();
+                            ResourceIdentifier serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
+                                this.DefaultContext.Subscription.Id,
+                                this.ResourceGroupName,
+                                this.ClusterName,
+                                this.Name);
 
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            ServiceFabricManagedApplicationResource application = SafeGetResource(() =>
+                                this.ArmClient.GetServiceFabricManagedApplicationResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
+
+                            application?.DeleteAsync(WaitUntil.Completed).Wait();
+
                             if (PassThru)
                             {
                                 WriteObject(true);

@@ -15,23 +15,19 @@
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
     using global::Azure.ResourceManager.ServiceFabricManagedClusters;
-    using Microsoft.Azure.Commands.ResourceManager.Common.Tags;
-    using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
-    public class PSManagedApplicationType : ServiceFabricManagedApplicationTypeResource
+    public class PSManagedApplicationType : ServiceFabricManagedApplicationTypeData
     {
-        public PSManagedApplicationType(ServiceFabricManagedApplicationTypeResource appType)
-            /*: base(
-                  Id: appTypeData.Id,
-                  Name: appTypeData.Name,
-                  ResourceType: appTypeData.ResourceType,
-                  SystemData: appTypeData.SystemData,
-                  Location: appTypeData.Location,
-                  ProvisioningState: appTypeData.ProvisioningState,
-                  Tags: appTypeData.Tags)*/
-
-            : base(appType) { }
-        {
-        }
+        public PSManagedApplicationType(ServiceFabricManagedApplicationTypeData appType) :
+        /*: base(
+              Id: appTypeData.Id,
+              Name: appTypeData.Name,
+              ResourceType: appTypeData.ResourceType,
+              SystemData: appTypeData.SystemData,
+              Location: appTypeData.Location,
+              ProvisioningState: appTypeData.ProvisioningState,
+              Tags: appTypeData.Tags)*/
+        base(appType.Location)
+        { }
     }
 }
