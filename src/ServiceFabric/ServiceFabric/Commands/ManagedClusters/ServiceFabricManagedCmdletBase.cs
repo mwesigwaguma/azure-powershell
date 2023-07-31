@@ -309,10 +309,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id,
                 resourceGroupName);
+
             ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
 
             // get the collection of this ServiceFabricManagedClusterResource
             ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+
             return collection;
         }
 

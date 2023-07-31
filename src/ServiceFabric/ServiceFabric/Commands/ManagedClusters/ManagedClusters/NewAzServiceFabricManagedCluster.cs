@@ -150,7 +150,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByTp, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByCn, HelpMessage = "Specify the tags as key/value pairs.")]
-        public KeyValuePair<string, string> Tag { get; set; }
+        public Hashtable Tag { get; set; }
 
         #endregion
 
@@ -160,44 +160,45 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name));
+                    ResourceIdentifier subResourceId = SubscriptionResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id);
+                    SubscriptionResource subResource = this.ArmClient.GetSubscriptionResource(subResourceId);
 
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    var clusterResource =  collection.GetAsync(this.Name).GetAwaiter().GetResult();
+                    var getResponse = SafeGetResource(() => subResource.GetResourceGroup(this.ResourceGroupName));
+                    ResourceGroupResource resourceGroupResource = getResponse == null ? null : getResponse.Value;
 
-                    if (clusterResource != null)
+                    if (resourceGroupResource == null)
+                    {
+                        var resourGroupData = new ResourceGroupData(new AzureLocation(this.Location));
+                        ResourceGroupCollection resGroupCollection = subResource.GetResourceGroups();
+
+                        var resourGrCreateResult = resGroupCollection.CreateOrUpdate(WaitUntil.Completed, this.ResourceGroupName, resourGroupData);
+                        resourceGroupResource = resourGrCreateResult.Value;
+                    }
+
+                    /*ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id, 
+                        this.ResourceGroupName);*/
+
+                    //resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
+                    resourceGroupResource = subResource.GetResourceGroup(this.ResourceGroupName);
+
+                    // get the collection of this ServiceFabricManagedClusterResource
+                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+                    
+                    if (collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
                             "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
                     }
-                    else
-                    {
-                        // Create resource group if it doesn't exist
-                        //var rg = SafeGetResource(() => this.ResourcesClient.ResourceGroups.Get(this.ResourceGroupName));
-
-                        ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
-                        ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
                         
+                    ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = lro.Value;
 
-                        if (resourceGroupResource == null)
-                        {
-                            WriteVerboseWithTimestamp(string.Format("Creating resource group {0} on {1}", this.ResourceGroupName, this.Location));
-                            this.ResourcesClient.ResourceGroups.CreateOrUpdate(this.ResourceGroupName, new ResourceGroup(this.Location));
-                        }
+                    // ?????????????????????????????????????
+                    // cluster = this.PollLongRunningOperation(beginRequestResponse);*/
 
-                        ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
-                  
-                        ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams).GetAwaiter().GetResult();
-                        ServiceFabricManagedClusterResource result = lro.Value;
-
-                        // ?????????????????????????????????????
-                        /*var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.Name, newClusterParams)
-                            .GetAwaiter().GetResult();
-
-                        cluster = this.PollLongRunningOperation(beginRequestResponse);*/
-
-                        WriteObject(new PSManagedCluster(result.Data), false);
-                    }
+                    //WriteObject(new PSManagedCluster(result.Data), false);
                 }
                 catch (Exception ex)
                 {
@@ -241,20 +242,32 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 this.DnsName = this.Name;
             }
 
-            var newCluster = new ServiceFabricManagedClusterData(
-                location: this.Location);
+            var newCluster = new ServiceFabricManagedClusterData(location: this.Location)
+            { 
+                DnsName = this.DnsName,
+                AdminUserName = this.AdminUserName,
+                AdminPassword = this.AdminPassword.ToString(),
+                HttpGatewayConnectionPort = this.HttpGatewayConnectionPort,
+                ClientConnectionPort = this.ClientConnectionPort,
+                SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString()),
+                ClusterUpgradeMode = this.UpgradeMode.ToString(),
+                ClusterUpgradeCadence = this.UpgradeCadence.ToString(),
+                HasZoneResiliency = this.ZonalResiliency.IsPresent,
+            };
 
-            newCluster.DnsName = this.DnsName;
+            //]var dicTag = new KeyValuePair<string, string>()
+
+            //newCluster.DnsName = this.DnsName;
             newCluster.Clients.Concat(clientCerts);
-            newCluster.AdminUserName = this.AdminUserName;
-            newCluster.AdminPassword = this.AdminPassword.ToString();
-            newCluster.HttpGatewayConnectionPort = this.HttpGatewayConnectionPort;
-            newCluster.ClientConnectionPort = this.ClientConnectionPort;
-            newCluster.SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString());
-            newCluster.ClusterUpgradeMode = this.UpgradeMode.ToString();
-            newCluster.ClusterUpgradeCadence = this.UpgradeCadence.ToString();
-            newCluster.HasZoneResiliency = this.ZonalResiliency.IsPresent;
-            newCluster.Tags.Add(this.Tag);
+            //newCluster.AdminUserName = this.AdminUserName;
+            //newCluster.AdminPassword = this.AdminPassword.ToString();
+            //newCluster.HttpGatewayConnectionPort = this.HttpGatewayConnectionPort;
+            //newCluster.ClientConnectionPort = this.ClientConnectionPort;
+            //newCluster.SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString());
+            //newCluster.ClusterUpgradeMode = this.UpgradeMode.ToString();
+            //newCluster.ClusterUpgradeCadence = this.UpgradeCadence.ToString();
+            //newCluster.HasZoneResiliency = this.ZonalResiliency.IsPresent;
+            newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
 
             if (this.UpgradeMode == ClusterUpgradeMode.Manual)
             {
