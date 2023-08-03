@@ -30,6 +30,7 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.Resources;
 using Azure.Core;
 using Azure.Identity;
+//using Azure.ResourceManager.ManagedServiceIdentities;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -42,13 +43,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private const string ApplicationTypeVersionResource = "Microsoft.ServiceFabric/managedclusters/applicationTypes/versions";
         private const string ServiceResource = "Microsoft.ServiceFabric/managedclusters/applications/services";
 
-        private Lazy<ArmClient> armClient;
+        //private Lazy<ArmClient> armClient ;
+        protected SubscriptionResource DefaultSubscription;
 
-        internal ArmClient ArmClient
-        {
+        protected ResourceGroupCleanupPolicy ResourceGroupCleanupPolicy = new ResourceGroupCleanupPolicy();
+        protected ResourceGroupCleanupPolicy OneTimeResourceGroupCleanupPolicy = new ResourceGroupCleanupPolicy();
+        protected ManagementGroupCleanupPolicy ManagementGroupCleanupPolicy = new ManagementGroupCleanupPolicy();
+        protected ManagementGroupCleanupPolicy OneTimeManagementGroupCleanupPolicy = new ManagementGroupCleanupPolicy();
+        protected ResponseNullFilterPolicy NullFilterPolicy = new ResponseNullFilterPolicy();
+
+        internal ArmClient ArmClient { get; set; }
+        /*{
             get { return armClient.Value; }
             set { armClient = new Lazy<ArmClient>(() => value);}
-        }
+        }*/
 
         public ServiceFabricManagedCmdletBase()
         {
@@ -57,7 +65,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void InitializeManagementClients()
         {
-            this.armClient = new Lazy<ArmClient> (() => new ArmClient(new DefaultAzureCredential()));
+            ArmClientOptions options = new ArmClientOptions();
+            //options.SetApiVersion(UserAssignedIdentityResource.ResourceType, "2018-11-30");
+
+            options.AddPolicy(ResourceGroupCleanupPolicy, HttpPipelinePosition.PerCall);
+            options.AddPolicy(ManagementGroupCleanupPolicy, HttpPipelinePosition.PerCall);
+            options.AddPolicy(NullFilterPolicy, HttpPipelinePosition.PerRetry);
+
+            ArmClient = new ArmClient(new DefaultAzureCredential(), this.DefaultContext.Subscription.Id, options);
+            //this.armClient = new Lazy<ArmClient> (() => new ArmClient(new DefaultAzureCredential(), this.DefaultContext.Subscription.Id, options));
         }
 
         #region Helper

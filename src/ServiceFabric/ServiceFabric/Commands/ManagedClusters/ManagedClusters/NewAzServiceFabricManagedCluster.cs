@@ -31,6 +31,7 @@ using Azure.ResourceManager.Resources;
 using Microsoft.Azure.Commands.Common.Strategies;
 using Azure.Core;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using System.Threading.Tasks;
 //using Sku = Microsoft.Azure.Management.ServiceFabricManagedClusters.Models.Sku;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -160,45 +161,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ResourceIdentifier subResourceId = SubscriptionResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id);
-                    SubscriptionResource subResource = this.ArmClient.GetSubscriptionResource(subResourceId);
+                    SubscriptionResource subResource = this.ArmClient.GetDefaultSubscriptionAsync().GetAwaiter().GetResult();
+                    ResourceGroupCollection resGroupCollection = subResource.GetResourceGroups();
 
-                    var getResponse = SafeGetResource(() => subResource.GetResourceGroup(this.ResourceGroupName));
-                    ResourceGroupResource resourceGroupResource = getResponse == null ? null : getResponse.Value;
+                    var resGroupExists = resGroupCollection.ExistsAsync(this.ResourceGroupName).GetAwaiter().GetResult().Value;
+                    ResourceGroupResource resourceGroupResource = null;
 
-                    if (resourceGroupResource == null)
+                    if (!resGroupExists)
                     {
-                        var resourGroupData = new ResourceGroupData(new AzureLocation(this.Location));
-                        ResourceGroupCollection resGroupCollection = subResource.GetResourceGroups();
 
-                        var resourGrCreateResult = resGroupCollection.CreateOrUpdate(WaitUntil.Completed, this.ResourceGroupName, resourGroupData);
-                        resourceGroupResource = resourGrCreateResult.Value;
+                        resourceGroupResource = createResourceGroup(resGroupCollection).Result;
+                    }
+                    else
+                    {
+                        resourceGroupResource = resGroupCollection.GetAsync(this.ResourceGroupName).GetAwaiter().GetResult();
                     }
 
-                    /*ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName);*/
+                    ServiceFabricManagedClusterResource result = this.createCluster(resourceGroupResource).Result;
 
-                    //resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-                    resourceGroupResource = subResource.GetResourceGroup(this.ResourceGroupName);
-
-                    // get the collection of this ServiceFabricManagedClusterResource
-                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
-                    
-                    if (collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value)
-                    {
-                        WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
-                            "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
-                    }
-                        
-                    ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = lro.Value;
-
-                    // ?????????????????????????????????????
-                    // cluster = this.PollLongRunningOperation(beginRequestResponse);*/
-
-                    //WriteObject(new PSManagedCluster(result.Data), false);
+                    WriteObject(new PSManagedCluster(result.Data), false);
                 }
                 catch (Exception ex)
                 {
@@ -206,6 +187,33 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     throw;
                 }
             }
+        }
+
+        private async Task<ResourceGroupResource> createResourceGroup(ResourceGroupCollection resGroupCollection)
+        {
+
+            ArmOperation<ResourceGroupResource> operation = await resGroupCollection.CreateOrUpdateAsync(
+                WaitUntil.Completed,
+                this.ResourceGroupName,
+                new ResourceGroupData(this.Location));
+
+            return operation.Value;
+        }
+
+        private async Task<ServiceFabricManagedClusterResource> createCluster(ResourceGroupResource resourceGroupResource)
+        {
+            ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+
+            if (collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value)
+            {
+                WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
+                    "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
+            }
+
+            ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
+            ArmOperation<ServiceFabricManagedClusterResource> lro = await collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
+
+            return lro.Value;
         }
 
         private ServiceFabricManagedClusterData GetNewManagedClusterParameters()
