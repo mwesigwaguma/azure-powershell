@@ -18,6 +18,14 @@
     <NoWarn>$(NoWarn);NU1605</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Remove="Commands\ManagedClusters\Applications\**" />
     <Compile Remove="Commands\ManagedClusters\ApplicationTypes\**" />
@@ -37,6 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Commands\ManagedClusters\ClientBase.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedService.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedStatefulService.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedStatelessService.cs" />

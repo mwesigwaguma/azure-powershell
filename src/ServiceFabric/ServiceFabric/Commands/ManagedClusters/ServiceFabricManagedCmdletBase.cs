@@ -44,7 +44,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private const string ServiceResource = "Microsoft.ServiceFabric/managedclusters/applications/services";
 
         //private Lazy<ArmClient> armClient ;
-        protected SubscriptionResource DefaultSubscription;
+        //protected SubscriptionResource DefaultSubscription;
+
+       //protected TClient InstrumentClient<TClient>(TClient client, IEnumerable<IInterceptor> preInterceptors) where TClient : class;
 
         protected ResourceGroupCleanupPolicy ResourceGroupCleanupPolicy = new ResourceGroupCleanupPolicy();
         protected ResourceGroupCleanupPolicy OneTimeResourceGroupCleanupPolicy = new ResourceGroupCleanupPolicy();
@@ -68,8 +70,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             ArmClientOptions options = new ArmClientOptions();
             //options.SetApiVersion(UserAssignedIdentityResource.ResourceType, "2018-11-30");
 
-            options.AddPolicy(ResourceGroupCleanupPolicy, HttpPipelinePosition.PerCall);
-            options.AddPolicy(ManagementGroupCleanupPolicy, HttpPipelinePosition.PerCall);
+            //options.AddPolicy(ResourceGroupCleanupPolicy, HttpPipelinePosition.PerCall);
+            //options.AddPolicy(ManagementGroupCleanupPolicy, HttpPipelinePosition.PerCall);
             options.AddPolicy(NullFilterPolicy, HttpPipelinePosition.PerRetry);
 
             ArmClient = new ArmClient(new DefaultAzureCredential(), this.DefaultContext.Subscription.Id, options);

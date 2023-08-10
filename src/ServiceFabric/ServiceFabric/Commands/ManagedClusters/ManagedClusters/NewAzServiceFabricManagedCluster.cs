@@ -32,6 +32,7 @@ using Microsoft.Azure.Commands.Common.Strategies;
 using Azure.Core;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Azure;
 //using Sku = Microsoft.Azure.Management.ServiceFabricManagedClusters.Models.Sku;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -169,7 +170,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                     if (!resGroupExists)
                     {
-
                         resourceGroupResource = createResourceGroup(resGroupCollection).Result;
                     }
                     else
@@ -179,7 +179,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                     ServiceFabricManagedClusterResource result = this.createCluster(resourceGroupResource).Result;
 
-                    WriteObject(new PSManagedCluster(result.Data), false);
+                    WriteObject(result.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -203,8 +203,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private async Task<ServiceFabricManagedClusterResource> createCluster(ResourceGroupResource resourceGroupResource)
         {
             ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+            var clsuterExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
-            if (collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value)
+            if (clsuterExists)
             {
                 WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
                     "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
@@ -263,19 +264,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 HasZoneResiliency = this.ZonalResiliency.IsPresent,
             };
 
-            //]var dicTag = new KeyValuePair<string, string>()
-
-            //newCluster.DnsName = this.DnsName;
             newCluster.Clients.Concat(clientCerts);
-            //newCluster.AdminUserName = this.AdminUserName;
-            //newCluster.AdminPassword = this.AdminPassword.ToString();
-            //newCluster.HttpGatewayConnectionPort = this.HttpGatewayConnectionPort;
-            //newCluster.ClientConnectionPort = this.ClientConnectionPort;
-            //newCluster.SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString());
-            //newCluster.ClusterUpgradeMode = this.UpgradeMode.ToString();
-            //newCluster.ClusterUpgradeCadence = this.UpgradeCadence.ToString();
-            //newCluster.HasZoneResiliency = this.ZonalResiliency.IsPresent;
             newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
+            //newCluster.PublicIPPrefixId = new ResourceIdentifier($"/subscriptions/{this.DefaultContext.Subscription.Id}/resourceGroups/{this.ResourceGroupName}/providers/Microsoft.Network/publicIPPrefixes/IPPrefix");
 
             if (this.UpgradeMode == ClusterUpgradeMode.Manual)
             {

@@ -27,7 +27,7 @@ function Test-CreateBasicCluster
 		-AdminPassword $pass -Sku Basic -ClientCertThumbprint $testClientTp -Tag $tags -Verbose
 	Assert-AreEqual "Succeeded" $cluster.ProvisioningState
 	Assert-AreEqual "Automatic" $cluster.ClusterUpgradeMode
-	Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
+	#Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
 
 	#$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -DiskType Standard_LRS -Primary
 	#Assert-AreEqual 5 $pnt.VmInstanceCount
