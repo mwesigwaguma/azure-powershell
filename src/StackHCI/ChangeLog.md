@@ -18,6 +18,10 @@
         - Additional information about change #1
 -->
 ## Upcoming Release
+* Used the correct version of cloud management service in `Register-AzStackHCI` cmdlet.
+* Fixed the bugs in `Register-AzStackHCI` and `Enable-AzStackHCIAttestation` cmdlets.
+
+## Version 2.1.0
 * Updated to api-version 2023-03-01.
 * Cmdlets added:
     - Invoke-AzStackHciExtendClusterSoftwareAssuranceBenefit : Enable Software Assurance for a cluster
