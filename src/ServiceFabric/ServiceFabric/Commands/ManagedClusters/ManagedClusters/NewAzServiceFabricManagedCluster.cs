@@ -23,17 +23,10 @@ using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.Internal.Resources.Models;
-using Microsoft.WindowsAzure.Commands.Common;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Azure.ResourceManager.Resources;
-using Microsoft.Azure.Commands.Common.Strategies;
-using Azure.Core;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Azure;
-//using Sku = Microsoft.Azure.Management.ServiceFabricManagedClusters.Models.Sku;
+
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -74,7 +67,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByTp, HelpMessage = "Cluster service fabric code version upgrade mode. Automatic or Manual.")]
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByCn, HelpMessage = "Cluster service fabric code version upgrade mode. Automatic or Manual.")]
         [Alias("ClusterUpgradeMode")]
-        public Models.ClusterUpgradeMode UpgradeMode { get; set; } = Models.ClusterUpgradeMode.Automatic;
+        public ManagedClusterUpgradeMode UpgradeMode { get; set; } = ManagedClusterUpgradeMode.Automatic;
 
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByTp, HelpMessage = "Cluster service fabric code version. Only use if upgrade mode is Manual.")]
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByCn, HelpMessage = "Cluster service fabric code version. Only use if upgrade mode is Manual.")]
@@ -86,7 +79,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ParameterSetName = ClientCertByCn, HelpMessage = "Indicates when new cluster runtime version upgrades will be applied after they are released. By default is Wave0.")]
         [ValidateNotNullOrEmpty()]
         [Alias("ClusterUpgradeCadence")]
-        public PSClusterUpgradeCadence UpgradeCadence { get; set; } = PSClusterUpgradeCadence.Wave0;
+        public ManagedClusterUpgradeCadence UpgradeCadence { get; set; } = ManagedClusterUpgradeCadence.Wave0;
 
         #region Client cert params
 
@@ -177,7 +170,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         resourceGroupResource = resGroupCollection.GetAsync(this.ResourceGroupName).GetAwaiter().GetResult();
                     }
 
-                    ServiceFabricManagedClusterResource result = this.createCluster(resourceGroupResource).Result;
+                    var result = this.createCluster(resourceGroupResource).Result;
 
                     WriteObject(result.Data, false);
                 }
@@ -204,7 +197,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
             var clsuterExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
-
+            
             if (clsuterExists)
             {
                 WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
@@ -212,19 +205,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
 
             ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
-            ArmOperation<ServiceFabricManagedClusterResource> lro = await collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
+            var operation = await collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
 
-            return lro.Value;
+            return operation.Value;
         }
 
         private ServiceFabricManagedClusterData GetNewManagedClusterParameters()
         {
-            if (this.UpgradeMode == Models.ClusterUpgradeMode.Manual && string.IsNullOrEmpty(this.CodeVersion))
+            if (this.UpgradeMode == ManagedClusterUpgradeMode.Manual && string.IsNullOrEmpty(this.CodeVersion))
             {
                 throw new PSArgumentException("UpgradeMode is set to manual but CodeVersion is not set. Please specify CodeVersion.", "CodeVersion");
             }
 
-            if (this.UpgradeMode == Models.ClusterUpgradeMode.Automatic && !string.IsNullOrEmpty(this.CodeVersion))
+            if (this.UpgradeMode == ManagedClusterUpgradeMode.Automatic && !string.IsNullOrEmpty(this.CodeVersion))
             {
                 throw new PSArgumentException("CodeVersion should only be used when upgrade mode is set to Manual.", "CodeVersion");
             }
@@ -259,16 +252,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 HttpGatewayConnectionPort = this.HttpGatewayConnectionPort,
                 ClientConnectionPort = this.ClientConnectionPort,
                 SkuName = new ServiceFabricManagedClustersSkuName(value: this.Sku.ToString()),
-                ClusterUpgradeMode = this.UpgradeMode.ToString(),
-                ClusterUpgradeCadence = this.UpgradeCadence.ToString(),
+                ClusterUpgradeMode = this.UpgradeMode,
+                ClusterUpgradeCadence = this.UpgradeCadence,
                 HasZoneResiliency = this.ZonalResiliency.IsPresent,
             };
 
             newCluster.Clients.Concat(clientCerts);
             newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
-            //newCluster.PublicIPPrefixId = new ResourceIdentifier($"/subscriptions/{this.DefaultContext.Subscription.Id}/resourceGroups/{this.ResourceGroupName}/providers/Microsoft.Network/publicIPPrefixes/IPPrefix");
-
-            if (this.UpgradeMode == ClusterUpgradeMode.Manual)
+           
+            if (this.UpgradeMode == ManagedClusterUpgradeMode.Manual)
             {
                 newCluster.ClusterCodeVersion = this.CodeVersion;
             }

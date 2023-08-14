@@ -30,22 +30,25 @@
     <Compile Remove="Commands\ManagedClusters\Applications\**" />
     <Compile Remove="Commands\ManagedClusters\ApplicationTypes\**" />
     <Compile Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
-    <Compile Remove="Commands\ManagedClusters\NodeTypes\**" />
     <Compile Remove="Commands\ManagedClusters\Services\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\Applications\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\ApplicationTypes\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
-    <EmbeddedResource Remove="Commands\ManagedClusters\NodeTypes\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\Services\**" />
     <None Remove="Commands\ManagedClusters\Applications\**" />
     <None Remove="Commands\ManagedClusters\ApplicationTypes\**" />
     <None Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
-    <None Remove="Commands\ManagedClusters\NodeTypes\**" />
     <None Remove="Commands\ManagedClusters\Services\**" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Commands\ManagedClusters\ClientBase.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\AddAzServiceFabricManagedNodeTypeVMExtension.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\AddAzServiceFabricManagedNodeTypeVMSecret.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\GetAzServiceFabricManagedNodeType.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\RemoveAzServiceFabricManagedNodeType.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\RemoveAzServiceFabricManagedNodeTypeVMExtension.cs" />
+    <Compile Remove="Commands\ManagedClusters\NodeTypes\RestartAzServiceFabricManagedNodeType.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedService.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedStatefulService.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedStatelessService.cs" />
@@ -58,7 +61,13 @@
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="3.0.1" />
     <PackageReference Include="Microsoft.Azure.KeyVault.WebKey" Version="3.0.1" />
     <PackageReference Include="Microsoft.Azure.Management.ServiceFabric" Version="1.3.0" />
-    <PackageReference Include="Azure.ResourceManager.ServiceFabricManagedClusters" Version="1.1.0-beta.2" />
+	  <PackageReference Include="Azure.ResourceManager" Version="1.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Azure.ResourceManager.ServiceFabricManagedClusters">
+      <HintPath>..\..\..\..\azure-sdk-for-net\artifacts\bin\Azure.ResourceManager.ServiceFabricManagedClusters\Debug\netstandard2.0\Azure.ResourceManager.ServiceFabricManagedClusters.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

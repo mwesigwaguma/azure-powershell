@@ -64,7 +64,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.Name);
                         ServiceFabricManagedClusterResource clusterResource = collection.GetAsync(this.Name).GetAwaiter().GetResult();
                         
-                        WriteObject(new PSManagedCluster(clusterResource.Data), false);
+                        WriteObject(clusterResource.Data, false);
                         break;
                     case ByResourceGroup:
                         /*var clusterList = this.ReturnListByPageResponse(
