@@ -189,7 +189,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (ShouldProcess(target: this.Name, action: string.Format("Update node type name {0}, cluster: {1}", this.Name, this.ClusterName)))
                 {
-                    var sfManagedNodetypeCollection = GetNodeTypeCollection();
+                    var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
                     var operation = sfManagedNodetypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
@@ -204,7 +204,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedNodeTypeData GetUpdatedNodeTypeParams()
         {
-            var nodeTypeCollection = GetNodeTypeCollection();
+            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
 
             var nodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
 
@@ -266,19 +266,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ResourceGroupName = resourceGroup;
             this.Name = resourceName;
             this.ClusterName = parentResourceName;
-        }
-
-        private ServiceFabricManagedNodeTypeCollection GetNodeTypeCollection() 
-        {
-            var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id,
-                        this.ResourceGroupName,
-                        this.ClusterName);
-
-            var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-            var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
-
-            return sfManagedNodetypeCollection;
         }
     }
 }

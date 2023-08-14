@@ -45,8 +45,6 @@
     <Compile Remove="Commands\ManagedClusters\ClientBase.cs" />
     <Compile Remove="Commands\ManagedClusters\NodeTypes\AddAzServiceFabricManagedNodeTypeVMExtension.cs" />
     <Compile Remove="Commands\ManagedClusters\NodeTypes\AddAzServiceFabricManagedNodeTypeVMSecret.cs" />
-    <Compile Remove="Commands\ManagedClusters\NodeTypes\GetAzServiceFabricManagedNodeType.cs" />
-    <Compile Remove="Commands\ManagedClusters\NodeTypes\RemoveAzServiceFabricManagedNodeType.cs" />
     <Compile Remove="Commands\ManagedClusters\NodeTypes\RemoveAzServiceFabricManagedNodeTypeVMExtension.cs" />
     <Compile Remove="Commands\ManagedClusters\NodeTypes\RestartAzServiceFabricManagedNodeType.cs" />
     <Compile Remove="Models\ManagedClusters\PSManagedService.cs" />

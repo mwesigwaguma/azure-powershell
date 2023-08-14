@@ -30,6 +30,7 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.Resources;
 using Azure.Core;
 using Azure.Identity;
+using System.Runtime.CompilerServices;
 //using Azure.ResourceManager.ManagedServiceIdentities;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -316,6 +317,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
 
             return collection;
+        }
+
+        protected ServiceFabricManagedNodeTypeCollection GetNodeTypeCollection(string resourceGroupName,string clusterName)
+        {
+            var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id,
+                        resourceGroupName,
+                        clusterName);
+
+            var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
+
+            return sfManagedNodetypeCollection;
         }
 
         #endregion

@@ -13,10 +13,12 @@
 
 using System;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -103,6 +105,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
+                var serviceFabricManagedNodeTypeResourceId = ServiceFabricManagedNodeTypeResource.CreateResourceIdentifier(
+                                this.DefaultContext.Subscription.Id,
+                                this.ResourceGroupName,
+                                this.ClusterName,
+                                this.Name);
+
+                var serviceFabricManagedNodeType = this.ArmClient.GetServiceFabricManagedNodeTypeResource(serviceFabricManagedNodeTypeResourceId);
+
                 switch (ParameterSetName)
                 {
                     case DeleteNodeByName:
@@ -110,15 +120,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     case DeleteNodeById:
                         if (ShouldProcess(target: this.Name, action: string.Format("Delete node(s) {0}, from node type {1} on cluster {2}", string.Join(", ", this.NodeName), this.Name, this.ClusterName)))
                         {
+                            var content = new NodeTypeActionContent();
+                            content.IsForced = this.ForceRemoveNode.IsPresent;
+                            foreach (string nodeName in this.NodeName)
+                            {
+                                content.Nodes.Add(nodeName);
+                            }
 
-                            var actionParams = new NodeTypeActionParameters(nodes: this.NodeName, force: this.ForceRemoveNode.IsPresent);
-                            var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginDeleteNodeWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.Name,
-                                    actionParams).GetAwaiter().GetResult();
-
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            serviceFabricManagedNodeType.DeleteNodeAsync(WaitUntil.Completed, content).Wait();
                         }
 
                         break;
@@ -128,12 +137,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     case DeleteNodeTypeById:
                         if (ShouldProcess(target: this.Name, action: string.Format("Remove node type: {0} on cluster {1}, resource group {2}", this.Name, this.ClusterName, this.ResourceGroupName)))
                         {
-                            var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginDeleteWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.Name).GetAwaiter().GetResult();
-
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            serviceFabricManagedNodeType.DeleteAsync(WaitUntil.Completed).Wait();
                         }
 
                         break;
