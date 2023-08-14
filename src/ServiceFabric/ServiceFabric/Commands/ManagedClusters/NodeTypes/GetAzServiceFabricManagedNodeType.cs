@@ -12,13 +12,16 @@
 // ----------------------------------------------------------------------------------
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Management.Automation;
+using System.Threading.Tasks;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -58,17 +61,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
+                var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                       this.DefaultContext.Subscription.Id,
+                       this.ResourceGroupName,
+                       this.ClusterName);
+
+                var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+                var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
+
                 if (!string.IsNullOrEmpty(this.Name))
                 {
-                    var nodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.Name);
-                    WriteObject(new PSManagedNodeType(nodeType), false);
+                    var nodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+
+                    WriteObject(nodeTypeResource.Value.Data, false);
                 }
                 else
                 {
-                    var nodeTypeList = this.ReturnListByPageResponse(
-                        this.SfrpMcClient.NodeTypes.ListByManagedClusters(this.ResourceGroupName, this.ClusterName),
-                        this.SfrpMcClient.NodeTypes.ListByManagedClustersNext);
-                    WriteObject(nodeTypeList.Select(nt => new PSManagedNodeType(nt)), true);
+
+                    var nodeTypeList = GetNodeTypes(sfManagedNodetypeCollection).Result;
+                    WriteObject(nodeTypeList, true);
                 }
             }
             catch (Exception ex)
@@ -76,6 +87,17 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 PrintSdkExceptionDetail(ex);
                 throw;
             }
+        }
+
+        private async Task<List<ServiceFabricManagedNodeTypeData>> GetNodeTypes(ServiceFabricManagedNodeTypeCollection sfManagedNodetypeCollection)
+        {
+            var nodeTypeList = new List<ServiceFabricManagedNodeTypeData>();
+            await foreach (ServiceFabricManagedNodeTypeResource item in sfManagedNodetypeCollection.GetAllAsync())
+            {
+                nodeTypeList.Add(item.Data);
+            }
+
+            return nodeTypeList;
         }
     }
 }
