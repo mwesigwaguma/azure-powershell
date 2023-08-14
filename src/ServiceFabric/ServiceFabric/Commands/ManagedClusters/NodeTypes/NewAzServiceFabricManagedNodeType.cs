@@ -19,8 +19,14 @@ using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using Microsoft.Azure.Commands.Common.Strategies;
+using Azure.Core;
+using System.Collections.Generic;
+using Microsoft.Azure.Management.ServiceFabric.Models;
+using EndpointRangeDescription = Azure.ResourceManager.ServiceFabricManagedClusters.Models.EndpointRangeDescription;
+using Azure;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -63,7 +69,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = false, HelpMessage = "Managed data disk type. IOPS and throughput are given by the disk size, to see more information go to https://learn.microsoft.com/en-us/azure/virtual-machines/disks-types. Default StandardSSD_LRS")]
         [Alias("DataDiskType")]
-        public PSDiskType DiskType { get; set; } = PSDiskType.StandardSSD_LRS;
+        public ServiceFabricManagedDataDiskType DiskType { get; set; } = ServiceFabricManagedDataDiskType.StandardSsdLrs;
 
         [Parameter(Mandatory = false, HelpMessage = "Application start port of a range of ports.")]
         public int? ApplicationStartPort { get; set; }
@@ -118,21 +124,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    NodeType nodeType = SafeGetResource(() => this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.Name));
-                    if (nodeType != null)
+                    var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id, 
+                        this.ResourceGroupName,
+                        this.ClusterName);
+
+                    var serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+                    var collection = serviceFabricManagedCluster.GetServiceFabricManagedNodeTypes();
+                    var nodeTypeExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+
+                    if (nodeTypeExists)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Node type '{0}' already exists.", this.Name)),
                             "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
                     }
                     else
                     {
-                        NodeType newNodeTypeParams = this.GetNewNodeTypeParameters();
-                        var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, newNodeTypeParams)
-                            .GetAwaiter().GetResult();
-
-                        nodeType = this.PollLongRunningOperation(beginRequestResponse);
-
-                        WriteObject(new PSManagedNodeType(nodeType), false);
+                        var newNodeTypeParams = this.GetNewNodeTypeParameters();
+                        var nodeTypeResource = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newNodeTypeParams).GetAwaiter().GetResult().Value;
+                        WriteObject(nodeTypeResource.Data, false);
                     }
                 }
                 catch (Exception ex)
@@ -143,21 +153,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetNewNodeTypeParameters()
+        private ServiceFabricManagedNodeTypeData GetNewNodeTypeParameters()
         {
-            var newNodeType = new NodeType(
-                isPrimary: this.Primary.IsPresent,
-                vmInstanceCount: this.InstanceCount,
-                dataDiskSizeGB: this.DiskSize,
-                dataDiskType: this.DiskType.ToString(),
-                name: this.Name,
-                vmSize: this.VmSize,
-                vmImagePublisher: this.VmImagePublisher,
-                vmImageOffer: this.VmImageOffer,
-                vmImageSku: this.VmImageSku,
-                vmImageVersion: this.VmImageVersion,
-                isStateless: this.IsStateless.IsPresent
-            );
+            var newNodeType = new ServiceFabricManagedNodeTypeData();
+
+            newNodeType.IsPrimary = this.Primary.IsPresent;
+            newNodeType.VmInstanceCount = this.InstanceCount;
+            newNodeType.DataDiskSizeInGB = this.DiskSize;
+            newNodeType.DataDiskType = this.DiskType;
+            newNodeType.VmSize = this.VmSize;
+            newNodeType.VmImagePublisher = this.VmImagePublisher;
+            newNodeType.VmImageOffer = this.VmImageOffer;
+            newNodeType.VmImageSku = this.VmImageSku;
+            newNodeType.VmImageVersion = this.VmImageVersion;
+            newNodeType.IsStateless = this.IsStateless;
 
             if (this.ApplicationStartPort.HasValue && this.ApplicationEndPort.HasValue)
             {
@@ -171,22 +180,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.Capacity != null)
             {
-                newNodeType.Capacities = this.Capacity.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                newNodeType.Capacities.Add(this.Capacity.Keys.ToString(), this.Capacity.Values.ToString());
             }
 
             if (this.PlacementProperty != null)
             {
-                newNodeType.PlacementProperties = this.PlacementProperty.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                newNodeType.PlacementProperties.Add(this.PlacementProperty.Keys.ToString(), this.PlacementProperty.Values.ToString());
             }
 
             if (this.VmUserAssignedIdentity != null && this.VmUserAssignedIdentity.Length > 0)
             {
-                newNodeType.VmManagedIdentity = new VmManagedIdentity(userAssignedIdentities: this.VmUserAssignedIdentity);
+                foreach (string userAssignedIdentity in this.VmUserAssignedIdentity)
+                {
+                    newNodeType.UserAssignedIdentities.Add( new ResourceIdentifier(userAssignedIdentity));
+                }
             }
 
             if (this.MultiplePlacementGroup.IsPresent)
             {
-                newNodeType.MultiplePlacementGroups = this.MultiplePlacementGroup.IsPresent;
+                newNodeType.HasMultiplePlacementGroups = this.MultiplePlacementGroup.IsPresent;
             }
 
             return newNodeType;

@@ -27,27 +27,27 @@ function Test-CreateBasicCluster
 		-AdminPassword $pass -Sku Basic -ClientCertThumbprint $testClientTp -Tag $tags -Verbose
 	Assert-AreEqual "Succeeded" $cluster.ProvisioningState
 	Assert-AreEqual "Automatic" $cluster.ClusterUpgradeMode
-	#Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
+	Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
 
-	#$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -DiskType Standard_LRS -Primary
-	#Assert-AreEqual 5 $pnt.VmInstanceCount
-	#Assert-AreEqual "Standard_LRS" $pnt.DataDiskType
+	$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -DiskType Standard_LRS -Primary
+	Assert-AreEqual 5 $pnt.VmInstanceCount
+	Assert-AreEqual "Standard_LRS" $pnt.DataDiskType
 
 	# shouldn't be allowed to remove the only primary node type in the cluster
-	#Assert-ThrowsContains { $pnt | Remove-AzServiceFabricManagedNodeType } "InvalidParameter"
+	Assert-ThrowsContains { $pnt | Remove-AzServiceFabricManagedNodeType } "InvalidParameter"
 
-	#$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
-	#Assert-AreEqual "Ready" $clusterFromGet.ClusterState
-	#Assert-HashtableEqual $cluster.Tags $clusterFromGet.Tags
+	$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	Assert-AreEqual "Ready" $clusterFromGet.ClusterState
+	Assert-HashtableEqual $cluster.Tags $clusterFromGet.Tags
 
 	# scale primary node type
-	#$pnt = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 6
-	#Assert-AreEqual 6 $pnt.VmInstanceCount
+	$pnt = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 6
+	Assert-AreEqual 6 $pnt.VmInstanceCount
 
-	#$removeResponse = $clusterFromGet | Remove-AzServiceFabricManagedCluster -PassThru
-	#Assert-True { $removeResponse }
+	$removeResponse = $clusterFromGet | Remove-AzServiceFabricManagedCluster -PassThru
+	Assert-True { $removeResponse }
 	
-	#Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName } "NotFound"
+	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName } "NotFound"
 }
 
 function Test-NodeTypeOperations

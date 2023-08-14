@@ -13,13 +13,13 @@
 
 using System;
 using System.Collections;
-using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -141,7 +141,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                NodeType updatedNodeTypeParams = null;
+                ServiceFabricManagedNodeTypeData updatedNodeTypeParams = null;
                 switch (ParameterSetName)
                 {
                     case ReimageByName:
@@ -149,15 +149,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     case ReimageByObj:
                         if (ShouldProcess(target: this.Name, action: string.Format("Reimage node(s) {0}, from node type {1} on cluster {2}", string.Join(", ", this.NodeName), this.Name, this.ClusterName)))
                         {
+                            var serviceFabricManagedNodeTypeResourceId = ServiceFabricManagedNodeTypeResource.CreateResourceIdentifier(
+                               this.DefaultContext.Subscription.Id,
+                               this.ResourceGroupName,
+                               this.ClusterName,
+                               this.Name);
 
-                            var actionParams = new NodeTypeActionParameters(nodes: this.NodeName, force: this.ForceReimage.IsPresent);
-                            var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginReimageWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.Name,
-                                    actionParams).GetAwaiter().GetResult();
+                            var serviceFabricManagedNodeTypeResource = this.ArmClient.GetServiceFabricManagedNodeTypeResource(serviceFabricManagedNodeTypeResourceId);
 
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            var nodeTypeContentAction = new NodeTypeActionContent();
+                            nodeTypeContentAction.IsForced = this.ForceReimage.IsPresent;
+
+                            foreach (String node in this.NodeName)
+                            {
+                                nodeTypeContentAction.Nodes.Add(node);
+                            }
+
+                            var actionOperation = serviceFabricManagedNodeTypeResource.Reimage(
+                                WaitUntil.Completed,
+                                nodeTypeContentAction);
                         }
 
                         if (this.PassThru)
@@ -179,12 +189,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (ShouldProcess(target: this.Name, action: string.Format("Update node type name {0}, cluster: {1}", this.Name, this.ClusterName)))
                 {
-                    var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, updatedNodeTypeParams)
-                        .GetAwaiter().GetResult();
+                    var sfManagedNodetypeCollection = GetNodeTypeCollection();
+                    var operation = sfManagedNodetypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
-                    var nodeType = this.PollLongRunningOperation(beginRequestResponse);
-
-                    WriteObject(new PSManagedNodeType(nodeType), false);
+                    WriteObject(operation.Value.Data, false);
                 }
             }
             catch (Exception ex)
@@ -194,9 +202,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetUpdatedNodeTypeParams()
+        private ServiceFabricManagedNodeTypeData GetUpdatedNodeTypeParams()
         {
-            NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.Name);
+            var nodeTypeCollection = GetNodeTypeCollection();
+
+            var nodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+
+            ServiceFabricManagedNodeTypeData currentNodeType = nodeTypeResource.Value.Data;
 
             if (this.InstanceCount.HasValue)
             {
@@ -215,12 +227,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.Capacity != null)
             {
-                currentNodeType.Capacities = this.Capacity.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentNodeType.Capacities.Clear();
+                currentNodeType.Capacities.Add(this.Capacity.Keys.ToString(), this.Capacity.Values.ToString());
             }
 
             if (this.PlacementProperty != null)
             {
-                currentNodeType.PlacementProperties = this.PlacementProperty.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                currentNodeType.PlacementProperties.Clear();
+                currentNodeType.PlacementProperties.Add(this.PlacementProperty.Keys.ToString(), this.PlacementProperty.Values.ToString());
             }
 
             return currentNodeType;
@@ -252,6 +266,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ResourceGroupName = resourceGroup;
             this.Name = resourceName;
             this.ClusterName = parentResourceName;
+        }
+
+        private ServiceFabricManagedNodeTypeCollection GetNodeTypeCollection() 
+        {
+            var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
+                        this.DefaultContext.Subscription.Id,
+                        this.ResourceGroupName,
+                        this.ClusterName);
+
+            var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
+
+            return sfManagedNodetypeCollection;
         }
     }
 }
