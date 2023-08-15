@@ -142,6 +142,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedNodeTypeData updatedNodeTypeParams = null;
+                var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+
                 switch (ParameterSetName)
                 {
                     case ReimageByName:
@@ -149,13 +151,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     case ReimageByObj:
                         if (ShouldProcess(target: this.Name, action: string.Format("Reimage node(s) {0}, from node type {1} on cluster {2}", string.Join(", ", this.NodeName), this.Name, this.ClusterName)))
                         {
-                            var serviceFabricManagedNodeTypeResourceId = ServiceFabricManagedNodeTypeResource.CreateResourceIdentifier(
-                               this.DefaultContext.Subscription.Id,
-                               this.ResourceGroupName,
-                               this.ClusterName,
-                               this.Name);
-
-                            var serviceFabricManagedNodeTypeResource = this.ArmClient.GetServiceFabricManagedNodeTypeResource(serviceFabricManagedNodeTypeResourceId);
+                            var serviceFabricManagedNodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
 
                             var nodeTypeContentAction = new NodeTypeActionContent();
                             nodeTypeContentAction.IsForced = this.ForceReimage.IsPresent;
@@ -178,7 +174,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         return;
                     case WithParamsByName:
                     case WithParamsById:
-                        updatedNodeTypeParams = this.GetUpdatedNodeTypeParams();
+                        updatedNodeTypeParams = this.GetUpdatedNodeTypeParams(sfManagedNodetypeCollection);
                         break;
                     case ByObj:
                         updatedNodeTypeParams = this.InputObject;
@@ -189,7 +185,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (ShouldProcess(target: this.Name, action: string.Format("Update node type name {0}, cluster: {1}", this.Name, this.ClusterName)))
                 {
-                    var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
                     var operation = sfManagedNodetypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
@@ -202,11 +197,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetUpdatedNodeTypeParams()
+        private ServiceFabricManagedNodeTypeData GetUpdatedNodeTypeParams(ServiceFabricManagedNodeTypeCollection sfManagedNodetypeCollection)
         {
-            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-
-            var nodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var nodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
 
             ServiceFabricManagedNodeTypeData currentNodeType = nodeTypeResource.Value.Data;
 
