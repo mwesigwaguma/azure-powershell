@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Management.Automation;
 using Azure.Core;
 using Azure.ResourceManager.Resources;
@@ -73,32 +74,27 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
-
-                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName);
-                    ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-
-                    // get the collection of this ServiceFabricManagedClusterResource
-                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
-                    ServiceFabricManagedClusterResource cluster = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
-
-
-                    if (cluster == null)
+                    ServiceFabricManagedClusterCollection sfManagedClustercollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var exists = sfManagedClustercollection.ExistsAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+                    
+                    if (!exists)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException($"Parent cluster '{this.ClusterName}' does not exist."),
                             "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
                     }
                     else
                     {
-                        CreateManagedApplicationType(this.Name, cluster.Data.Location, errorIfPresent: false);
+                        var clusterResource = sfManagedClustercollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+
+                        CreateManagedApplicationType(this.Name, clusterResource.Data.Location, new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()), errorIfPresent: false);
                         var managedAppTypeVersion = CreateManagedApplicationTypeVersion(
                             applicationTypeName: this.Name,
                             typeVersion: this.Version,
-                            location: cluster.Data.Location,
+                            location: clusterResource.Data.Location,
                             packageUrl: this.PackageUrl,
                             force: this.Force.IsPresent,
                             tags: this.Tag);
-                        //WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion), false);
+                       
                         WriteObject(managedAppTypeVersion.Data);
                     }
                 }

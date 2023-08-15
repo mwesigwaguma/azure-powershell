@@ -109,10 +109,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert();
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert(sfManagedClusterCollection);
+                    
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = lro.Value;
 
                     WriteObject(new PSManagedCluster(result.Data), false);
@@ -125,10 +125,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert()
+        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterResource result = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;
             
             var newCert = new ManagedClusterClientCertificate(isAdmin: this.Admin.IsPresent);

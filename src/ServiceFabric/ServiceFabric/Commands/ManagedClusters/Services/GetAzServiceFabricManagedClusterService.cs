@@ -21,6 +21,9 @@ using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.ServiceFabricManagedClusters;
 using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -72,12 +75,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
+                var sfManagedServiceCollection = GetSfManagedClusterServiceCollection();
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedServiceList = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.Services.ListByApplications(this.ResourceGroupName, this.ClusterName, this.ApplicationName),
-                            this.SfrpMcClient.Services.ListByApplicationsNext);
+                        
                         WriteObject(managedServiceList.Select(service => PSManagedService.GetInstance(service)), true);
                         break;
                     case ByName:
@@ -112,5 +114,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ApplicationName = parentResourceName;
             this.Name = resourceName;
         }
+
+        private async Task<List<ServiceFabricManagedServiceData>> GetSfManagedClusterServices(sfManagedServiceCollection)
+        {
+            var services = new List<ServiceFabricManagedServiceData>();
+            return services;
+        }
+          
     }
 }

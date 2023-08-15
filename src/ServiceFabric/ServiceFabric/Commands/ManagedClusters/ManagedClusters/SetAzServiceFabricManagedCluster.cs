@@ -12,9 +12,7 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
 using Azure.ResourceManager;
 using Azure;
@@ -22,8 +20,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -117,11 +113,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                     ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = lro.Value;
-
-                    // ???????????????????
-                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = operation.Value;
 
                     WriteObject(new PSManagedCluster(result.Data), false);
                 }
@@ -135,7 +128,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedClusterData GetUpdatedClusterParams()
         {
-            //var currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
             ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;

@@ -33,8 +33,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
     [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(typeof(PSManagedApplicationTypeVersion))]
     public class SetAzServiceFabricManagedClustersApplicationTypeVersion : ManagedApplicationCmdletBase
     {
-
-        private ServiceFabricManagedApplicationTypeVersionResource currentAppTypeVersionResource;
         private const string ByResourceGroup = "ByResourceGroup";
         private const string ByInputObject = "ByInputObject";
         private const string ByResourceId = "ByResourceId";
@@ -101,14 +99,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedApplicationTypeVersionData updatedAppTypeVersionParams = null;
+                ServiceFabricManagedApplicationTypeVersionCollection appTypeVersionCollection = GetApplicationTypeVersionCollection(this.Name);
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
                     case ByResourceId:
-                        updatedAppTypeVersionParams = this.GetUpdatedAppTypeVersionParams();
+                        updatedAppTypeVersionParams = this.GetUpdatedAppTypeVersionParams(appTypeVersionCollection);
                         break;
                     case ByInputObject:
-                        updatedAppTypeVersionParams = this.GetUpdatedAppTypeVersionParams(this.InputObject);
+                        updatedAppTypeVersionParams = this.GetUpdatedAppTypeVersionParams(appTypeVersionCollection, this.InputObject);
                         break;
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
@@ -116,20 +115,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeVersionParams != null && ShouldProcess(target: this.Version, action: $"Update managed application type version. typename: {this.Name}, version {this.Version} in resource group {this.ResourceGroupName}"))
                 {
-                    ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName, 
-                        this.ClusterName, 
-                        this.Name);
+                    ArmOperation<ServiceFabricManagedApplicationTypeVersionResource> operation = appTypeVersionCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Version, updatedAppTypeVersionParams).GetAwaiter().GetResult();
+                    ServiceFabricManagedApplicationTypeVersionResource managedAppTypeVersion = operation.Value;
 
-                    ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicationType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
-
-                    // get the collection of this ServiceFabricManagedApplicationTypeVersionResource
-                    ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicationType.GetServiceFabricManagedApplicationTypeVersions();
-                    ArmOperation<ServiceFabricManagedApplicationTypeVersionResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Version, updatedAppTypeVersionParams).GetAwaiter().GetResult();
-                    ServiceFabricManagedApplicationTypeVersionResource managedAppTypeVersion = lro.Value;
-
-                    WriteObject(new PSManagedApplicationTypeVersion(managedAppTypeVersion.Data), false);
+                    WriteObject(managedAppTypeVersion.Data, false);
                 }
             }
             catch (Exception ex)
@@ -139,33 +128,25 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedApplicationTypeVersionData GetUpdatedAppTypeVersionParams(ServiceFabricManagedApplicationTypeVersionData inputObject = null)
+        private ServiceFabricManagedApplicationTypeVersionData GetUpdatedAppTypeVersionParams(
+            ServiceFabricManagedApplicationTypeVersionCollection appTypeVersionCollection, 
+            ServiceFabricManagedApplicationTypeVersionData inputObject = null)
         {
-            ServiceFabricManagedApplicationTypeVersionData currentAppTypeVerionData;
+            ServiceFabricManagedApplicationTypeVersionData currentAppTypeVerionData = null;
 
             if (inputObject == null)
             {
-                ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(
-               this.DefaultContext.Subscription.Id,
-               this.ResourceGroupName,
-               this.ClusterName,
-               this.Name,
-               this.Version);
+                var exists = appTypeVersionCollection.ExistsAsync(this.Version).GetAwaiter().GetResult().Value;
 
-                currentAppTypeVersionResource = SafeGetResource(() =>
-                    this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedApplicationTypeVersionResourceId));
-
-
-
-                if (currentAppTypeVersionResource == null)
+                if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
                     return null;
                 }
 
+                var currentAppTypeVersionResource = appTypeVersionCollection.GetAsync(this.Version).GetAwaiter().GetResult().Value;
                 currentAppTypeVerionData = currentAppTypeVersionResource.Data;
-
             }
             else
             {

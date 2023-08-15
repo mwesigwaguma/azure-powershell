@@ -121,11 +121,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedApplicationCollection GetManagedApplicationCollection()
         {
-            //ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
             ResourceIdentifier serviceFabricManagedClusterResourceId = new ResourceIdentifier(this.ResourceId);
             ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-
-            // get the collection of this ServiceFabricManagedApplicationTypeResource
             ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
 
             return collection;
