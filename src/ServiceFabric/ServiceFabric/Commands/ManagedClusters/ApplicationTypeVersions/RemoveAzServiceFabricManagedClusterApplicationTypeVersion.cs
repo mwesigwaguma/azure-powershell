@@ -110,27 +110,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-
-                            /*var beginRequestResponse = this.SfrpMcClient.ApplicationTypeVersions.BeginDeleteWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.Name,
-                                    this.Version).GetAwaiter().GetResult();
-
-                            this.PollLongRunningOperation(beginRequestResponse);*/
-
-                            ResourceIdentifier serviceFabricManagedApplicationTypeVersionResourceId = ServiceFabricManagedApplicationTypeVersionResource.CreateResourceIdentifier(
-                                this.DefaultContext.Subscription.Id,
-                                this.ResourceGroupName,
-                                this.ClusterName,
-                                this.Name,
-                                this.Version);
-
-                            ServiceFabricManagedApplicationTypeVersionResource applicationTypeVersion = SafeGetResource(() =>
-                                this.ArmClient.GetServiceFabricManagedApplicationTypeVersionResource(this.ArmClient, serviceFabricManagedApplicationTypeVersionResourceId));
-
-                            applicationTypeVersion?.DeleteAsync(WaitUntil.Completed).Wait();
-
+                            var appTypeVersionCollection = GetApplicationTypeVersionCollection(this.Name);
+                            var applicationTypeVersionResource = appTypeVersionCollection.GetAsync(this.Version).GetAwaiter().GetResult().Value;
+                            applicationTypeVersionResource?.DeleteAsync(WaitUntil.Completed).Wait();
 
                             if (PassThru)
                             {

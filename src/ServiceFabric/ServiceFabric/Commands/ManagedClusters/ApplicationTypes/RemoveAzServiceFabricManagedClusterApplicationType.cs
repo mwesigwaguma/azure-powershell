@@ -102,7 +102,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var appTypeCollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                            var appTypeCollection = GetApplicationTypeCollection();
                             ServiceFabricManagedApplicationTypeResource applicationType = appTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
 
                             applicationType?.DeleteAsync(WaitUntil.Completed).Wait();

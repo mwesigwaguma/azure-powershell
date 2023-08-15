@@ -91,7 +91,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeParams != null && ShouldProcess(target: this.Name, action: $"Update managed app type name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var sfManagedApplicationTypecollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
                     var operation = sfManagedApplicationTypecollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams).GetAwaiter().GetResult();
                     var managedAppType = operation.Value;
 
@@ -111,7 +111,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (inputObject == null)
             {
-                var sfManagedApplicationTypecollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
                 var exists = sfManagedApplicationTypecollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
                 if (!exists)

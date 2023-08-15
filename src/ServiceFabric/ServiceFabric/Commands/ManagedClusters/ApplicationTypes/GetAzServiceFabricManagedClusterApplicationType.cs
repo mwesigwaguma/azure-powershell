@@ -90,7 +90,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void GetByName()
         {
-            var collection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var collection = GetApplicationTypeCollection();
             var operation = collection.GetAsync(this.Name).GetAwaiter().GetResult();
 
             WriteObject(operation.Value.Data, false);
@@ -106,7 +106,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes() 
         {
-            var collection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var collection = GetApplicationTypeCollection();
             var appTypes = new List<ServiceFabricManagedApplicationTypeData>();
 
             await foreach (ServiceFabricManagedApplicationTypeResource item in collection.GetAllAsync())

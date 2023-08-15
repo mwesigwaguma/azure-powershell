@@ -101,10 +101,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			{
 				try
 				{
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithNewNetworkSecurityRule();
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-
-                    var lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithNewNetworkSecurityRule(sfManagedClusterCollection);
+                
+                    var lro = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = lro.Value;
 
                     WriteObject(new PSManagedCluster(result.Data), false);
@@ -117,10 +117,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			}
 		}
 
-		private ServiceFabricManagedClusterData GetClusterWithNewNetworkSecurityRule()
+		private ServiceFabricManagedClusterData GetClusterWithNewNetworkSecurityRule(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
 		{
-            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-            ServiceFabricManagedClusterResource result = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterResource result = sfManagedClusterCollection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;
 
             ServiceFabricManagedNetworkSecurityRule newNetworkSecurityRule = new ServiceFabricManagedNetworkSecurityRule(

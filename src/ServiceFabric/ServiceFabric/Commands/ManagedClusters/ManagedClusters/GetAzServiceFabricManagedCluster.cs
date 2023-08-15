@@ -52,12 +52,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
-                switch(ParameterSetName)
+                ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+
+                switch (ParameterSetName)
                 {
                     case ByName:
-                        
-                        ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                        ServiceFabricManagedClusterResource clusterResource = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+                        ServiceFabricManagedClusterResource clusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult();
                         
                         WriteObject(clusterResource?.Data, false);
                         break;
@@ -75,7 +75,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                             this.SfrpMcClient.ManagedClusters.ListBySubscription(),
                             this.SfrpMcClient.ManagedClusters.ListBySubscriptionNext);*/
 
-                        var clusterList = GetClusterList();
+                        var clusterList = GetClusterList(sfManagedClusterCollection);
                         WriteObject(clusterList, true);
 
                         //WriteObject(cluster2List.Select(c => new PSManagedCluster(c)), true);
@@ -89,12 +89,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private async Task<List<ServiceFabricManagedClusterData>> GetClusterList()
+        private async Task<List<ServiceFabricManagedClusterData>> GetClusterList(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             List<ServiceFabricManagedClusterData> clusterList = new List<ServiceFabricManagedClusterData>();
             
-            await foreach (ServiceFabricManagedClusterResource item in collection.GetAllAsync())
+            await foreach (ServiceFabricManagedClusterResource item in sfManagedClusterCollection.GetAllAsync())
             {
                 clusterList.Add(item.Data);
             }
