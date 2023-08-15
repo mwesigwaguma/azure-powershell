@@ -13,16 +13,11 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
-using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
-using Microsoft.Azure.Commands.Common.Strategies;
-using Azure.Core;
-using Microsoft.Azure.KeyVault.Models;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -95,14 +90,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private void GetByName()
         {
-            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
-            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            var collection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var operation = collection.GetAsync(this.Name).GetAwaiter().GetResult();
 
-            // get the collection of this ServiceFabricManagedApplicationTypeResource
-            ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
-            ServiceFabricManagedApplicationTypeResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
-
-            WriteObject(result.Data, false);
+            WriteObject(operation.Value.Data, false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -113,14 +104,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ClusterName = parentResourceName;
         }
 
-        private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes() {
-            ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
-            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-
-            // get the collection of this ServiceFabricManagedApplicationTypeResource
-            ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
-            //var managedAppTypeList = collection.GetAllAsync();
-            List<ServiceFabricManagedApplicationTypeData> appTypes = new List<ServiceFabricManagedApplicationTypeData>();
+        private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes() 
+        {
+            var collection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var appTypes = new List<ServiceFabricManagedApplicationTypeData>();
 
             await foreach (ServiceFabricManagedApplicationTypeResource item in collection.GetAllAsync())
             {

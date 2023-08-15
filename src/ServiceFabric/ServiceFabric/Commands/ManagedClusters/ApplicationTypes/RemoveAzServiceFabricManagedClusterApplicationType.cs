@@ -15,7 +15,6 @@
 using System;
 using System.Management.Automation;
 using Azure;
-using Azure.Core;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
@@ -103,16 +102,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            //this.SfrpMcClient.ApplicationTypes.Delete(this.ResourceGroupName, this.ClusterName, this.Name);
-
-                            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
-                                this.DefaultContext.Subscription.Id, 
-                                this.ResourceGroupName, 
-                                this.ClusterName,
-                                this.Name);
-
-                            ServiceFabricManagedApplicationTypeResource applicationType = SafeGetResource(() => 
-                                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationTypeResourceId));
+                            var appTypeCollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                            ServiceFabricManagedApplicationTypeResource applicationType = appTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
 
                             applicationType?.DeleteAsync(WaitUntil.Completed).Wait();
 

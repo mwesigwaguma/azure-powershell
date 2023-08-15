@@ -12,14 +12,12 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using Azure.Core;
-using Azure.ResourceManager.Resources;
-using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Management.Automation;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -56,27 +54,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    //ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
+                    var sfManagedClustercollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var clusterExists = sfManagedClustercollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
-                    ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName);
-
-                    ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-
-                    // get the collection of this ServiceFabricManagedClusterResource
-                    ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
-                    ServiceFabricManagedClusterResource cluster = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
-
-                    if (cluster == null)
+                    if (!clusterExists)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException($"Parent cluster '{this.ClusterName}' does not exist."),
                             "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
                     }
                     else
                     {
-                        var appType = CreateManagedApplicationType(this.Name, cluster.Data.Location, this.Tag);
-                        //WriteObject(new PSManagedApplicationType(appType), false);
+                        var cluster = sfManagedClustercollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+                        var appType = CreateManagedApplicationType(this.Name, cluster.Data.Location, new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
                         WriteObject(appType.Data);
                     }
                 }

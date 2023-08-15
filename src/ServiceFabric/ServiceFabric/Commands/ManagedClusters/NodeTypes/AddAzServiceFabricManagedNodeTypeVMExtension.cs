@@ -12,14 +12,14 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
+
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -97,13 +97,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    NodeType updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension();
-                    var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.NodeTypeName, updatedNodeTypeParams)
-                        .GetAwaiter().GetResult();
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension();
+                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
-                    var nodeType = this.PollLongRunningOperation(beginRequestResponse);
-
-                    WriteObject(new PSManagedNodeType(nodeType), false);
+                    WriteObject(operation.Value.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -113,28 +111,26 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetNodeTypeWithAddedExtension()
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension()
         {
-            NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.NodeTypeName);
+            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeType = currentNodeTypeResource.Value.Data;
 
-            if (currentNodeType.VmExtensions == null)
+            var extensionToAdd = new NodeTypeVmssExtension(this.Name, this.Publisher, this.Type, this.TypeHandlerVersion)
             {
-                currentNodeType.VmExtensions = new List<VMSSExtension>();
-            }
-
-            currentNodeType.VmExtensions.Add(new VMSSExtension()
-            {
-                Name = this.Name,
-                Publisher = this.Publisher,
-                Type = this.Type,
-                TypeHandlerVersion = this.TypeHandlerVersion,
                 ForceUpdateTag = this.ForceUpdateTag,
                 AutoUpgradeMinorVersion = this.AutoUpgradeMinorVersion.IsPresent,
-                Settings = this.Setting,
-                ProtectedSettings = this.ProtectedSetting,
-                ProvisionAfterExtensions = this.ProvisionAfterExtension
-            });
+                Settings = (BinaryData)this.Setting,
+                ProtectedSettings = (BinaryData)this.ProtectedSetting
+            };
 
+            foreach(string provAfterExt in this.ProvisionAfterExtension)
+            {
+                extensionToAdd.ProvisionAfterExtensions.Add(provAfterExt);
+            }
+
+            currentNodeType.VmExtensions.Add(extensionToAdd);
             return currentNodeType;
         }
 

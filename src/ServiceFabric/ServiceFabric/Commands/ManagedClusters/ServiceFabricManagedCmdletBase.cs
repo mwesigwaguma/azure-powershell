@@ -247,52 +247,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        /* protected ArmCollection GetManagedResourceCollection(ResourceIdentifier resourceId)
-         {
-             ServiceFabricManagedClusterResource serviceFabricManagedCluster;
-             ServiceFabricManagedNodeTypeResource serviceFabricManagedNodetype;
-             ServiceFabricManagedApplicationResource serviceFabricManagedApplication;
-             ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicationType;
-             ServiceFabricManagedApplicationTypeVersionResource serviceFabricManagedApplicationTypeVersion;
-             ServiceFabricManagedServiceResource serviceFabricManagedService;
-
-             switch (resourceId.ResourceType)
-             {
-                 case ClusterResource:
-                     serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(resourceId);
-                     return serviceFabricManagedCluster.GetServiceFabricManagedApplication();
-
-                 case NodeTypeResource:
-                     break;
-
-                 case ApplicationResource:
-                     break;
-
-                 case ApplicationTypeResource:
-                     break;
-
-                 case ApplicationTypeVersionResource:
-                     break;
-
-                 case ServiceResource:
-                     break;
-
-                 default:
-                     WriteError(new ErrorRecord(new InvalidOperationException($"Invalid ResourceId: '{resourceId}'"),
-                             "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                     break;
-             }
-
-
-             ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(this.DefaultContext.Subscription.Id, this.ResourceGroupName, this.ClusterName);
-             ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-
-             // get the collection of this ServiceFabricManagedApplicationTypeResource
-             ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
-
-             return collection;
-         }*/
-
         protected ServiceFabricManagedClusterResource GetManagedClusterResource(string resourceGroup, string clusterName)
         {
             ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
@@ -312,8 +266,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 resourceGroupName);
 
             ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-
-            // get the collection of this ServiceFabricManagedClusterResource
             ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
 
             return collection;
@@ -321,12 +273,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         protected ServiceFabricManagedNodeTypeCollection GetNodeTypeCollection(string resourceGroupName,string clusterName)
         {
-            var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id,
-                        resourceGroupName,
-                        clusterName);
-
-            var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
+            var serviceFabricManagedClusterResource = GetManagedClusterResource(resourceGroupName, clusterName);
             var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
 
             return sfManagedNodetypeCollection;

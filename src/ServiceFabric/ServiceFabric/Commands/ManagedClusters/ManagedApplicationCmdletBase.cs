@@ -13,22 +13,13 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
-using System.Linq;
 using System.Management.Automation;
-using Microsoft.Azure.Commands.Common.Compute.Version_2018_04;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
-using Microsoft.Azure.Management.Internal.ResourceManager.Version2018_05_01;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
-using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
-using Microsoft.Azure.Commands.Common.Strategies;
 using Azure.Core;
 using Azure.ResourceManager;
 using Azure;
-using Microsoft.Azure.Management.ServiceFabric.Models;
-using Microsoft.Extensions.Azure;
 using System.Collections.Generic;
-using Azure.ResourceManager.Resources.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -56,16 +47,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         protected ServiceFabricManagedApplicationTypeResource CreateManagedApplicationType(string applicationTypeName, string location, KeyValuePair<string, string> tags, bool errorIfPresent = true)
         {
-            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
-                this.DefaultContext.Subscription.Id, 
-                this.ResourceGroupName, 
-                this.ClusterName,
-                applicationTypeName); 
-
-            ServiceFabricManagedApplicationTypeResource applicationType = SafeGetResource(() => 
-                this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId));
-
-            if (applicationType != null)
+            var appTypeCollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var exists = appTypeCollection.ExistsAsync(applicationTypeName).GetAwaiter().GetResult().Value;
+            if(exists)
             {
                 if (errorIfPresent)
                 {
@@ -77,18 +61,16 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     WriteVerbose($"Managed app type '{applicationTypeName}' already exists.");
                 }
 
-                return applicationType;
+                return appTypeCollection.GetAsync(applicationTypeName).GetAwaiter().GetResult().Value;
             }
             else
             {
-                ServiceFabricManagedClusterResource serviceFabricManagedCluster = GetManagedClusterResource(this.ResourceGroupName, this.ClusterName);
-                ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
-
+                var collection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
                 var data = new ServiceFabricManagedApplicationTypeData(new AzureLocation(location));
                 data.Tags.Add(tags);
 
-                ArmOperation<ServiceFabricManagedApplicationTypeResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, applicationTypeName, data).GetAwaiter().GetResult();
-                var result =  lro.Value;
+                var operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, applicationTypeName, data).GetAwaiter().GetResult();
+                var result =  operation.Value;
                 return result;
             }
         }
@@ -201,5 +183,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             return data;
         }*/
+
+        protected ServiceFabricManagedApplicationTypeCollection GetApplicationTypeCollection(string resourceGroupName, string clusterName)
+        {
+            var serviceFabricManagedClusterResource = GetManagedClusterResource(this.ResourceGroupName, this.ClusterName);
+            var sfManagedApptypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedApplicationTypes();
+
+            return sfManagedApptypeCollection;
+        }
     }
 }

@@ -61,13 +61,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
-                var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                       this.DefaultContext.Subscription.Id,
-                       this.ResourceGroupName,
-                       this.ClusterName);
-
-                var serviceFabricManagedClusterResource = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-                var sfManagedNodetypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedNodeTypes();
+                var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
 
                 if (!string.IsNullOrEmpty(this.Name))
                 {

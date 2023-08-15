@@ -13,9 +13,11 @@
 
 using System;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -68,14 +70,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var actionParams = new NodeTypeActionParameters(nodes: this.NodeName, force: this.ForceRestart.IsPresent);
-                    var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginRestartWithHttpMessagesAsync(
-                            this.ResourceGroupName,
-                            this.ClusterName,
-                            this.Name,
-                            actionParams).GetAwaiter().GetResult();
+                    var nodeTypecollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var serviceFabricManagedNodeTypeResource = nodeTypecollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
 
-                    this.PollLongRunningOperation(beginRequestResponse);
+                    var nodeTypeContentAction = new NodeTypeActionContent();
+                    nodeTypeContentAction.IsForced = this.ForceRestart.IsPresent;
+
+                    foreach (String node in this.NodeName)
+                    {
+                        nodeTypeContentAction.Nodes.Add(node);
+                    }
+
+                    serviceFabricManagedNodeTypeResource.RestartAsync(WaitUntil.Completed, nodeTypeContentAction).Wait();
 
                     if (this.PassThru)
                     {

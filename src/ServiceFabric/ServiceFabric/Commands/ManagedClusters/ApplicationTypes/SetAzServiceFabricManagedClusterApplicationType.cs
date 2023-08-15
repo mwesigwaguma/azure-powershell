@@ -12,16 +12,10 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
 using Azure;
-using Azure.Core;
-using Azure.ResourceManager;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
-using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
-using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
@@ -32,7 +26,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
     [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationType", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(new Type[] { typeof(bool), typeof(PSManagedApplicationType) })]
     public class SetAzServiceFabricManagedClusterApplicationType : ManagedApplicationCmdletBase
     {
-        private ServiceFabricManagedApplicationTypeResource currentAppType;
         private const string ByResourceGroup = "ByResourceGroup";
         private const string ByInputObject = "ByInputObject";
         private const string ByResourceId = "ByResourceId";
@@ -98,20 +91,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeParams != null && ShouldProcess(target: this.Name, action: $"Update managed app type name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    //var managedAppType = this.SfrpMcClient.ApplicationTypes.CreateOrUpdate(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppTypeParams);
+                    var sfManagedApplicationTypecollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var operation = sfManagedApplicationTypecollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams).GetAwaiter().GetResult();
+                    var managedAppType = operation.Value;
 
-                    ResourceIdentifier serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName, 
-                        this.ClusterName);
-                    ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-
-                    // get the collection of this ServiceFabricManagedApplicationTypeResource
-                    ServiceFabricManagedApplicationTypeCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplicationTypes();
-                    ArmOperation<ServiceFabricManagedApplicationTypeResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams);
-                    ServiceFabricManagedApplicationTypeResource managedAppType = lro.Value;
-
-                    WriteObject(new PSManagedApplicationType(managedAppType.Data));
+                    WriteObject(managedAppType.Data);
                 }
             }
             catch (Exception ex)
@@ -123,28 +107,21 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeData inputObject = null)
         {
-            ServiceFabricManagedApplicationTypeData updatedAppType ;
+            ServiceFabricManagedApplicationTypeData updatedAppType = null;
 
             if (inputObject == null)
             {
-                ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
-                this.DefaultContext.Subscription.Id,
-                this.ResourceGroupName,
-                this.ClusterName,
-                this.Name);
+                var sfManagedApplicationTypecollection = GetApplicationTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var exists = sfManagedApplicationTypecollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
-                currentAppType = SafeGetResource(() =>
-                    this.ArmClient.GetServiceFabricManagedApplicationTypeResource(this.ArmClient, serviceFabricManagedApplicationTypeResourceId));
-
-
-                if (currentAppType == null)
+                if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
                     return null;
                 }
 
-                currentAppType.Data.Tags.Clear();
+                var currentAppType = sfManagedApplicationTypecollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
                 updatedAppType = currentAppType.Data;
             }
             else

@@ -97,11 +97,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithRemovedClientCert();
                     ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = lro.Value;
-
-                    //?????????????????????????????????
-                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterResource result = operation.Value;
 
                     if (this.PassThru)
                     {
@@ -122,13 +119,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert()
         {
-            //ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.Name);
-
             ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             var currentCluster = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             var clusterResource = currentCluster.Value;
 
-            if (clusterResource.Data.Clients == null || clusterResource.Data.Clients.Count() == 0)
+            if (clusterResource?.Data.Clients == null || clusterResource?.Data.Clients.Count() == 0)
             {
                 throw new InvalidOperationException("The cluster has no client certifices registered.");
             }
@@ -192,7 +187,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             var certList =  data.Clients.Where(cert =>
                         string.Equals(cert.Thumbprint.ToString(), this.Thumbprint, StringComparison.OrdinalIgnoreCase));
 
-            return certList.First();
+            return certList.FirstOrDefault();
         }
     }
 }

@@ -14,12 +14,11 @@
 using System;
 using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -76,11 +75,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    NodeType updatedNodeTypeParams = this.GetNodeTypeWithRemovedExtension();
-                    var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.NodeTypeName, updatedNodeTypeParams)
-                        .GetAwaiter().GetResult();
+                    var updatedNodeTypeParams = this.GetNodeTypeWithRemovedExtension();
+                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
 
-                    var nodeType = this.PollLongRunningOperation(beginRequestResponse);
+                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     if (this.PassThru)
                     {
@@ -88,7 +86,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     }
                     else
                     {
-                        WriteObject(new PSManagedNodeType(nodeType), false);
+                        WriteObject(operation.Value.Data, false);
                     }
                 }
                 catch (Exception ex)
@@ -99,14 +97,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetNodeTypeWithRemovedExtension()
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithRemovedExtension()
         {
-            NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.NodeTypeName);
+            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeType = currentNodeTypeResource.Value.Data;
 
-            if (currentNodeType.VmExtensions != null)
+            if (currentNodeType?.VmExtensions != null)
             {
                 var originalLength = currentNodeType.VmExtensions.Count();
-                currentNodeType.VmExtensions = currentNodeType.VmExtensions.Where(ext => !string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                var extensionToRemove = currentNodeType.VmExtensions.Where(ext => string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase));
+
+                currentNodeType.VmExtensions.Remove(extensionToRemove.FirstOrDefault());
+                
                 if (originalLength == currentNodeType.VmExtensions.Count())
                 {
                     throw new ArgumentException(string.Format("extension with name {0} not found", this.Name));

@@ -102,17 +102,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 				try
 				{
                     ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithNewNetworkSecurityRule();
-
-                    // ?????????????????????????????????
-                    //var cluster = this.PollLongRunningOperation(beginRequestResponse);
-
                     ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
                     var lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = lro.Value;
-
-                    // ??????????????????????????????
-                    // var cluster = this.PollLongRunningOperation(beginRequestResponse);
 
                     WriteObject(new PSManagedCluster(result.Data), false);
 				}
@@ -126,8 +119,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
 		private ServiceFabricManagedClusterData GetClusterWithNewNetworkSecurityRule()
 		{
-            // currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName);
-
             ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             ServiceFabricManagedClusterResource result = collection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;

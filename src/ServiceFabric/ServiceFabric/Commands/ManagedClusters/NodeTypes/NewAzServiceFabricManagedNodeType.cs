@@ -13,18 +13,13 @@
 
 using System;
 using System.Collections;
-using System.Linq;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
-using Microsoft.Azure.Commands.Common.Strategies;
 using Azure.Core;
-using System.Collections.Generic;
-using Microsoft.Azure.Management.ServiceFabric.Models;
 using EndpointRangeDescription = Azure.ResourceManager.ServiceFabricManagedClusters.Models.EndpointRangeDescription;
 using Azure;
 
@@ -124,13 +119,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName,
-                        this.ClusterName);
-
-                    var serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-                    var collection = serviceFabricManagedCluster.GetServiceFabricManagedNodeTypes();
+                    var collection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
                     var nodeTypeExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
                     if (nodeTypeExists)

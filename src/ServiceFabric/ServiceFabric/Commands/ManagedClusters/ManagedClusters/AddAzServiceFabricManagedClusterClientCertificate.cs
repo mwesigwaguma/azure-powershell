@@ -115,9 +115,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = lro.Value;
 
-                    // ??????????????????????????????
-                    // var cluster = this.PollLongRunningOperation(beginRequestResponse);
-
                     WriteObject(new PSManagedCluster(result.Data), false);
                 }
                 catch (Exception ex)
@@ -133,8 +130,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;
-            //ServiceFabricManagedClusterData c = new ServiceFabricManagedClusterData(AzureLocation.AustraliaCentral, lo);
-
+            
             var newCert = new ManagedClusterClientCertificate(isAdmin: this.Admin.IsPresent);
 
             switch(ParameterSetName)

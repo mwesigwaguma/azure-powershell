@@ -13,17 +13,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
 using System.Threading.Tasks;
-using Azure.Core;
-using Azure.ResourceManager.Resources;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
-using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -61,10 +56,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 {
                     case ByName:
                         
-                        ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.Name);
+                        ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
                         ServiceFabricManagedClusterResource clusterResource = collection.GetAsync(this.Name).GetAwaiter().GetResult();
                         
-                        WriteObject(clusterResource.Data, false);
+                        WriteObject(clusterResource?.Data, false);
                         break;
                     case ByResourceGroup:
                         /*var clusterList = this.ReturnListByPageResponse(
@@ -96,16 +91,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private async Task<List<ServiceFabricManagedClusterData>> GetClusterList()
         {
-            ResourceIdentifier resourceGroupResourceId = ResourceGroupResource.CreateResourceIdentifier(
-                this.DefaultContext.Subscription.Id, 
-                this.ResourceGroupName);
-
-            ResourceGroupResource resourceGroupResource = this.ArmClient.GetResourceGroupResource(resourceGroupResourceId);
-
-            // get the collection of this ServiceFabricManagedClusterResource
-            ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             List<ServiceFabricManagedClusterData> clusterList = new List<ServiceFabricManagedClusterData>();
-            // invoke the operation and iterate over the result
+            
             await foreach (ServiceFabricManagedClusterResource item in collection.GetAllAsync())
             {
                 clusterList.Add(item.Data);

@@ -70,18 +70,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var serviceFabricManagedClusterResourceId = ServiceFabricManagedClusterResource.CreateResourceIdentifier(
-                        this.DefaultContext.Subscription.Id, 
-                        this.ResourceGroupName, 
-                        this.Name);
-
-                    var serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-
-                    // invoke the operation
+                    var serviceFabricManagedCluster = GetManagedClusterResource(this.ResourceGroupName, this.Name);
                     serviceFabricManagedCluster.DeleteAsync(WaitUntil.Completed).Wait();
-
-                    // ???????????????????????
-                    //this.PollLongRunningOperation(beginRequestResponse);
 
                     if (this.PassThru)
                     {

@@ -105,13 +105,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                var serviceFabricManagedNodeTypeResourceId = ServiceFabricManagedNodeTypeResource.CreateResourceIdentifier(
-                                this.DefaultContext.Subscription.Id,
-                                this.ResourceGroupName,
-                                this.ClusterName,
-                                this.Name);
-
-                var serviceFabricManagedNodeType = this.ArmClient.GetServiceFabricManagedNodeTypeResource(serviceFabricManagedNodeTypeResourceId);
+                var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var serviceFabricManagedNodeType = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
 
                 switch (ParameterSetName)
                 {

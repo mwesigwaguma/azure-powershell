@@ -15,12 +15,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.Core;
+using Azure.ResourceManager.Resources.Models;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -80,13 +83,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    NodeType updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret();
-                    var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, updatedNodeTypeParams)
-                        .GetAwaiter().GetResult();
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret();
+                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
-                    var nodeType = this.PollLongRunningOperation(beginRequestResponse);
-
-                    WriteObject(new PSManagedNodeType(nodeType), false);
+                    WriteObject(operation.Value.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -96,36 +97,29 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetNodeTypeWithAddedSecret()
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedSecret()
         {
-            NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.Name);
+            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeType = currentNodeTypeResource.Value.Data;
 
-            if (currentNodeType.VmSecrets == null)
-            {
-                currentNodeType.VmSecrets = new List<VaultSecretGroup>();
-            }
-
-            var vault = currentNodeType.VmSecrets.FirstOrDefault(v => string.Equals(v.SourceVault.Id, this.SourceVaultId, StringComparison.OrdinalIgnoreCase));
+            var vault = currentNodeType.VmSecrets.FirstOrDefault(v => string.Equals(v.SourceVaultId.ToString(), this.SourceVaultId, StringComparison.OrdinalIgnoreCase));
             bool newVaultSecretGroup = false;
+
+            var sourceVault = new WritableSubResource()
+            {
+                Id = new ResourceIdentifier(this.SourceVaultId)
+            };
+
+            var vaultCertificates = new List<NodeTypeVaultCertificate>()
+            {
+                new NodeTypeVaultCertificate(new Uri(this.CertificateUrl), this.CertificateStore)
+            };
+
             if (vault == null)
             {
                 newVaultSecretGroup = true;
-                vault = new VaultSecretGroup()
-                {
-                    SourceVault = new SubResource(this.SourceVaultId)
-                };
-            }
-            
-            if (vault.VaultCertificates == null)
-            {
-                vault.VaultCertificates = new List<VaultCertificate>()
-                {
-                    new VaultCertificate()
-                    {
-                        CertificateStore = this.CertificateStore,
-                        CertificateUrl = this.CertificateUrl
-                    }
-                };
+                vault = new NodeTypeVaultSecretGroup(sourceVault, vaultCertificates);
             }
 
             if (newVaultSecretGroup)
