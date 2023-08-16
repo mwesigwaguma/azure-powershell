@@ -24,7 +24,7 @@ using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedCluster", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedCluster))]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedCluster", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedClusterData))]
     public class SetAzServiceFabricManagedCluster : ServiceFabricManagedCmdletBase
     {
         protected const string WithParamsByName = "WithParamsByName";
@@ -56,7 +56,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ByObj,
             HelpMessage = "Managed Cluster resource")]
         [ValidateNotNull]
-        public PSManagedCluster InputObject { get; set; }
+        public ServiceFabricManagedClusterData InputObject { get; set; }
 
         #endregion
 

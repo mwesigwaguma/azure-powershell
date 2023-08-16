@@ -28,10 +28,13 @@
 
   <ItemGroup>
     <Compile Remove="Commands\ManagedClusters\Applications\**" />
+    <Compile Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
     <Compile Remove="Commands\ManagedClusters\Services\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\Applications\**" />
+    <EmbeddedResource Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
     <EmbeddedResource Remove="Commands\ManagedClusters\Services\**" />
     <None Remove="Commands\ManagedClusters\Applications\**" />
+    <None Remove="Commands\ManagedClusters\ApplicationTypeVersions\**" />
     <None Remove="Commands\ManagedClusters\Services\**" />
   </ItemGroup>
 

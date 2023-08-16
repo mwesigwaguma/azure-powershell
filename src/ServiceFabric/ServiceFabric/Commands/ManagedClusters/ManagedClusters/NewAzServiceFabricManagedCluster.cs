@@ -30,7 +30,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedCluster", DefaultParameterSetName = ClientCertByTp, SupportsShouldProcess = true), OutputType(typeof(PSManagedCluster))]
+    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedCluster", DefaultParameterSetName = ClientCertByTp, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedClusterData))]
     public class NewAzServiceFabricManagedCluster : ServiceFabricManagedCmdletBase
     {
         protected const string ClientCertByTp = "ClientCertByTp";
@@ -258,7 +258,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             };
 
             newCluster.Clients.Concat(clientCerts);
-            newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
+
+            if (this.Tag != null)
+            {
+                newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
+            }
            
             if (this.UpgradeMode == ManagedClusterUpgradeMode.Manual)
             {

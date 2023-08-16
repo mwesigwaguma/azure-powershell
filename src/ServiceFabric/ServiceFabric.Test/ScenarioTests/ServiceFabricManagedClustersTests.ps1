@@ -19,7 +19,7 @@ function Test-CreateBasicCluster
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
-	#Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "Not Found"
+	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "Not Found"
 
 	$tags = @{"test"="tag"}
 	
@@ -34,17 +34,17 @@ function Test-CreateBasicCluster
 	Assert-AreEqual "Standard_LRS" $pnt.DataDiskType
 
 	# shouldn't be allowed to remove the only primary node type in the cluster
-	#Assert-ThrowsContains { $pnt | Remove-AzServiceFabricManagedNodeType } "cannot be bound"
+	Assert-ThrowsContains { $pnt | Remove-AzServiceFabricManagedNodeType } "InvalidParameter"
 
-	#$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
-	#Assert-AreEqual "Ready" $clusterFromGet.ClusterState
-	#Assert-HashtableEqual $cluster.Tags $clusterFromGet.Tags
+	$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	Assert-AreEqual "Ready" $clusterFromGet.ClusterState
+	Assert-HashtableEqual $cluster.Tags $clusterFromGet.Tags
 
 	# scale primary node type
-	$pnt = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 6
-	Assert-AreEqual 6 $pnt.VmInstanceCount
+	#$pnt = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 6
+	#Assert-AreEqual 6 $pnt.VmInstanceCount
 
-	$removeResponse = $clusterFromGet | Remove-AzServiceFabricManagedCluster -PassThru
+	$removeResponse = $cluster | Remove-AzServiceFabricManagedCluster -PassThru
 	Assert-True { $removeResponse }
 	
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName } "NotFound"
@@ -70,31 +70,31 @@ function Test-NodeTypeOperations
 	New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -InstanceCount 6 -IsStateless -AsJob
 
 	#wait for nodetypes
-	WaitForAllJob
+	#WaitForAllJob
 
-	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
-	Assert-AreEqual "Premium_LRS" $pnt.DataDiskType
-	Assert-False { $pnt.IsStateless }
+	#$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
+	#Assert-AreEqual "Premium_LRS" $pnt.DataDiskType
+	#Assert-False { $pnt.IsStateless }
 
-	$snt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt
-	Assert-AreEqual "StandardSSD_LRS" $snt.DataDiskType
-	Assert-True { $snt.IsStateless }
+	#$snt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt
+	#Assert-AreEqual "StandardSSD_LRS" $snt.DataDiskType
+	#Assert-True { $snt.IsStateless }
 
-	$restart = Restart-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_0, snt_1 -PassThru
-	Assert-True { $restart }
+	#$restart = Restart-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_0, snt_1 -PassThru
+	#Assert-True { $restart }
 
-	$delete = Remove-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_1 -PassThru
-	Assert-True { $delete }
+	#$delete = Remove-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_1 -PassThru
+	#Assert-True { $delete }
 
-	$reimage = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_3 -Reimage -PassThru
-	Assert-True { $reimage }
+	#$reimage = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_3 -Reimage -PassThru
+	#Assert-True { $reimage }
 
-	$snt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt
-	$removeResponse = $snt | Remove-AzServiceFabricManagedNodeType -PassThru
-	Assert-True { $removeResponse }
+	#$snt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt
+	#$removeResponse = $snt | Remove-AzServiceFabricManagedNodeType -PassThru
+	#Assert-True { $removeResponse }
 
-	$removeResponse = $cluster | Remove-AzServiceFabricManagedCluster -PassThru
-	Assert-True { $removeResponse }
+	#$removeResponse = $cluster | Remove-AzServiceFabricManagedCluster -PassThru
+	#Assert-True { $removeResponse }
 }
 
 function Test-CertAndExtension

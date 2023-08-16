@@ -28,7 +28,7 @@ using Microsoft.Azure.Management.Internal.Resources;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Add, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterClientCertificate", DefaultParameterSetName = ClientCertByTpByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedCluster))]
+    [Cmdlet(VerbsCommon.Add, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterClientCertificate", DefaultParameterSetName = ClientCertByTpByObj, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedClusterData))]
     public class AddAzServiceFabricManagedClusterClientCertificate : ServiceFabricManagedCmdletBase
     {
         protected const string ClientCertByTpByName = "ClientCertByTpByName";
@@ -109,13 +109,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert(sfManagedClusterCollection);
-                    
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert();
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+
+                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = lro.Value;
 
-                    WriteObject(new PSManagedCluster(result.Data), false);
+                    WriteObject(result.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -125,9 +125,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
+        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert()
         {
-            ServiceFabricManagedClusterResource result = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;
             
             var newCert = new ManagedClusterClientCertificate(isAdmin: this.Admin.IsPresent);

@@ -12,46 +12,71 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
+using Azure;
+using Azure.Core;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Models
 {
     public class PSManagedCluster : ServiceFabricManagedClusterData
     {
+        /*//public string
+        string Id { get; set; }
+        public string Name { get; set; }
+        public ResourceType type { get; set; }
+        Hashtable tags { get; set; }
+        ETag eTag { get; set; }
+        string clusterId { get; set; }
+        List<ManagedClusterAddOnFeature> addOnFeatures { get; set; }*/
+
+        /* Id: cluster.Id,
+                    name: cluster.Name,
+                    type: cluster.Type,
+                    tags: cluster.Tags,
+                    etag: cluster.Etag,
+                    clusterId: cluster.ClusterId,
+                    addonFeatures: cluster.AddonFeatures,
+                    clusterUpgradeCadence: cluster.ClusterUpgradeCadence,
+                    clusterUpgradeMode: cluster.ClusterUpgradeMode,
+                    clusterCodeVersion: cluster.ClusterCodeVersion,
+                    provisioningState: cluster.ProvisioningState,
+                    fabricSettings: cluster.FabricSettings,
+                    azureActiveDirectory: cluster.AzureActiveDirectory,
+                    clients: cluster.Clients,
+                    networkSecurityRules: cluster.NetworkSecurityRules,
+                    loadBalancingRules: cluster.LoadBalancingRules,
+                    adminPassword: cluster.AdminPassword,
+                    adminUserName: cluster.AdminUserName,
+                    httpGatewayConnectionPort: cluster.HttpGatewayConnectionPort,
+                    clientConnectionPort: cluster.ClientConnectionPort,
+                    clusterCertificateThumbprints: cluster.ClusterCertificateThumbprints,
+                    clusterState: cluster.ClusterState,
+                    ipv4Address: cluster.Ipv4Address,
+                    fqdn: cluster.Fqdn,
+                    dnsName: cluster.DnsName,
+                    applicationTypeVersionsCleanupPolicy: cluster.ApplicationTypeVersionsCleanupPolicy,
+                    sku: cluster.Sku,
+                    zonalResiliency: cluster.ZonalResiliency,
+                    allowRdpAccess: cluster.AllowRdpAccess,
+                    enableAutoOSUpgrade: cluster.EnableAutoOSUpgrade)*/
+
+        ///private ServiceFabricManagedClusterData data; 
         public PSManagedCluster(ServiceFabricManagedClusterData cluster)
-            /*: base(location: cluster.Location,
-                   id: cluster.Id,
-                   name: cluster.Name,
-                   type: cluster.Type,
-                   tags: cluster.Tags,
-                   etag: cluster.Etag,
-                   clusterId: cluster.ClusterId,
-                   addonFeatures: cluster.AddonFeatures,
-                   clusterUpgradeCadence: cluster.ClusterUpgradeCadence,
-                   clusterUpgradeMode: cluster.ClusterUpgradeMode,
-                   clusterCodeVersion: cluster.ClusterCodeVersion,
-                   provisioningState: cluster.ProvisioningState,
-                   fabricSettings: cluster.FabricSettings,
-                   azureActiveDirectory: cluster.AzureActiveDirectory,
-                   clients: cluster.Clients,
-                   networkSecurityRules: cluster.NetworkSecurityRules,
-                   loadBalancingRules: cluster.LoadBalancingRules,
-                   adminPassword: cluster.AdminPassword,
-                   adminUserName: cluster.AdminUserName,
-                   httpGatewayConnectionPort: cluster.HttpGatewayConnectionPort,
-                   clientConnectionPort: cluster.ClientConnectionPort,
-                   clusterCertificateThumbprints: cluster.ClusterCertificateThumbprints,
-                   clusterState: cluster.ClusterState,
-                   ipv4Address: cluster.Ipv4Address,
-                   fqdn: cluster.Fqdn,
-                   dnsName: cluster.DnsName,
-                   applicationTypeVersionsCleanupPolicy: cluster.ApplicationTypeVersionsCleanupPolicy,
-                   sku: cluster.Sku,
-                   zonalResiliency: cluster.ZonalResiliency,
-                   allowRdpAccess: cluster.AllowRdpAccess,
-                   enableAutoOSUpgrade: cluster.EnableAutoOSUpgrade)*/
-            :base(cluster.Location)
+            : base(location: cluster.Location)
         {
         }
+
     }
+
+    /*private void getAddonFeatures(ServiceFabricManagedClusterData cluster)
+    {
+        foreach (ManagedClusterAddOnFeature feature in cluster.AddOnFeatures)
+        { 
+            
+        }
+    }*/
 }

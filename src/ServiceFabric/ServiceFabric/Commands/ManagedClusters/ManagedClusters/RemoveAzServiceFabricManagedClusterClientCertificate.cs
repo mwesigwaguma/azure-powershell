@@ -18,7 +18,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
 using System;
 using System.Linq;
 using System.Management.Automation;
@@ -26,7 +25,7 @@ using System.Management.Automation;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Remove, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterClientCertificate", DefaultParameterSetName = ClientCertByTpByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedCluster))]
+    [Cmdlet(VerbsCommon.Remove, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterClientCertificate", DefaultParameterSetName = ClientCertByTpByObj, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedClusterData))]
     public class RemoveAzServiceFabricManagedClusterClientCertificate : ServiceFabricManagedCmdletBase
     {
         protected const string ClientCertByTpByName = "ClientCertByCnTpName";
@@ -60,7 +59,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ClientCertByCnByObj,
             HelpMessage = "Managed cluster resource")]
         [ValidateNotNull]
-        public PSManagedCluster InputObject { get; set; }
+        public ServiceFabricManagedClusterData InputObject { get; set; }
 
         #endregion
 

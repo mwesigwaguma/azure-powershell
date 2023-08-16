@@ -23,7 +23,7 @@ using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Add, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeTypeVMExtension", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedNodeType))]
+    [Cmdlet(VerbsCommon.Add, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeTypeVMExtension", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedNodeTypeData))]
     public class AddAzServiceFabricManagedNodeTypeVMExtension : ServiceFabricManagedCmdletBase
     {
         protected const string ByName = "ByName";
@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ByObj,
             HelpMessage = "Node Type resource")]
         [ValidateNotNull]
-        public PSManagedNodeType InputObject { get; set; }
+        public ServiceFabricManagedNodeTypeData InputObject { get; set; }
 
         #endregion
 

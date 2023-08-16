@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ByObj,
             HelpMessage = "Managed Cluster resource")]
         [ValidateNotNull]
-        public PSManagedCluster InputObject { get; set; }
+        public ServiceFabricManagedClusterData InputObject { get; set; }
 
         [Parameter(Mandatory = false)]
         public SwitchParameter PassThru { get; set; }

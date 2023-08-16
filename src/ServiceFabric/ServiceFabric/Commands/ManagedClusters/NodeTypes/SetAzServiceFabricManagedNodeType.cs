@@ -19,11 +19,10 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeType", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(new Type[] { typeof(bool), typeof(PSManagedNodeType) })]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeType", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(new Type[] { typeof(bool), typeof(ServiceFabricManagedNodeTypeData) })]
     public class SetAzServiceFabricManagedNodeType : ServiceFabricManagedCmdletBase
     {
         protected const string ReimageByName = "ReimageByName";
@@ -73,7 +72,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ReimageByObj,
             HelpMessage = "Node type resource")]
         [ValidateNotNull]
-        public PSManagedNodeType InputObject { get; set; }
+        public ServiceFabricManagedNodeTypeData InputObject { get; set; }
 
         #endregion
 

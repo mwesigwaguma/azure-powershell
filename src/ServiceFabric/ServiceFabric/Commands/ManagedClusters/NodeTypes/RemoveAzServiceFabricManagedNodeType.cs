@@ -66,7 +66,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = DeleteNodeByObj,
             HelpMessage = "Node type resource")]
         [ValidateNotNull]
-        public PSManagedNodeType InputObject { get; set; }
+        public ServiceFabricManagedNodeTypeData InputObject { get; set; }
 
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = DeleteNodeTypeById,
             HelpMessage = "Node type resource id")]
