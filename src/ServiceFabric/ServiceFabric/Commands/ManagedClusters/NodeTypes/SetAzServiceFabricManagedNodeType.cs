@@ -219,13 +219,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.Capacity != null)
             {
-                currentNodeType.Capacities.Clear();
+                //currentNodeType.Capacities.Clear();
                 currentNodeType.Capacities.Add(this.Capacity.Keys.ToString(), this.Capacity.Values.ToString());
             }
 
             if (this.PlacementProperty != null)
             {
-                currentNodeType.PlacementProperties.Clear();
+                //currentNodeType.PlacementProperties.Clear();
                 currentNodeType.PlacementProperties.Add(this.PlacementProperty.Keys.ToString(), this.PlacementProperty.Values.ToString());
             }
 

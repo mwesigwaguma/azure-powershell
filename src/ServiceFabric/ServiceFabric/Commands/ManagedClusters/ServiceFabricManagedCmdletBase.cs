@@ -31,6 +31,9 @@ using Azure.ResourceManager.Resources;
 using Azure.Core;
 using Azure.Identity;
 using System.Runtime.CompilerServices;
+using Azure;
+using System.Reflection;
+using System.Text.Json;
 //using Azure.ResourceManager.ManagedServiceIdentities;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -63,19 +66,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         #region Helper
 
-       /* protected void PollLongRunningOperation(Rest.Azure.AzureOperationResponse beginRequestResponse)
+        /*protected void PollLongRunningOperation(Response beginRequestResponse)
         {
             AzureOperationResponse<object> response2 = new Rest.Azure.AzureOperationResponse<object>
             {
                 Request = beginRequestResponse.Request,
                 Response = beginRequestResponse.Response,
-                RequestId = beginRequestResponse.RequestId
+                RequestId = beginRequestResponse.R
             };
 
             this.PollLongRunningOperation(response2);
-        }
+        }*/
 
-        protected T PollLongRunningOperation<T>(AzureOperationResponse<T> beginRequestResponse) where T : class
+      /*  protected T PollLongRunningOperation<T>(AzureOperationResponse<T> beginRequestResponse) where T : class
         {
             var progress = new ProgressRecord(0, "Request in progress", "Getting Status...");
             WriteProgress(progress);
@@ -105,7 +108,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 }
             });
 
-            
+
             while (!tokenSource.IsCancellationRequested)
             {
                 tokenSource.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(WriteVerboseIntervalInSec));
@@ -161,13 +164,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return result?.Body;
         }
 */
-        private string GetOperationIdFromAsyncHeader(HttpResponseHeaders headers)
+
+
+        private string GetOperationIdFromAsyncHeader(ResponseHeaders headers)
         {
-            if (headers.Location != null)
+            /*if (headers.Location != null)
             {
                 return headers.Location.Segments.LastOrDefault();
             }
-
+*/
             if (headers.TryGetValues(Constants.AzureAsyncOperationHeader, out IEnumerable<string> headerValues))
             {
                 var asyncOperationStatusEndpoint = new Uri(headerValues.First());
@@ -177,7 +182,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return "Unknown";
         }
 
-        private Operation ConvertToOperation(string content)
+       /* private Operation ConvertToOperation(string content)
         {
             try
             {
@@ -215,12 +220,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 return operation;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 WriteDebugWithTimestamp("unable to parse operation content '{0}' exception {1}", content, ex);
                 return null;
             }
-        }
+        }*/
 
         private HttpRequestMessage CloneAndDisposeRequest(HttpRequestMessage original, Uri requestUri = null, HttpMethod method = null)
         {

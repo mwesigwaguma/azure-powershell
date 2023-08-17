@@ -23,7 +23,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationType", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(PSManagedApplicationType))]
+    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationType", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(ServiceFabricManagedApplicationTypeData))]
     public class GetAzServiceFabricManagedClusterApplicationType : ManagedApplicationCmdletBase
     {
         private const string ByResourceGroupAndCluster = "ByResourceGroupAndCluster";
@@ -64,18 +64,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
+                var collection = GetApplicationTypeCollection();
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppTypeList = GetApplicationTypes().GetAwaiter().GetResult();
+                        var managedAppTypeList = GetApplicationTypes(collection);
                         WriteObject(managedAppTypeList, true);
                         break;
                     case ByName:
-                        GetByName();
+                        GetByName(collection);
                         break;
                     case ByResourceId:
                         SetParametersByResourceId(this.ResourceId);
-                        GetByName();
+                        GetByName(collection);
                         break;
                     default:
                         throw new PSArgumentException("Invalid ParameterSetName");
@@ -88,11 +89,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private void GetByName()
+        private void GetByName(ServiceFabricManagedApplicationTypeCollection collection)
         {
-            var collection = GetApplicationTypeCollection();
             var operation = collection.GetAsync(this.Name).GetAwaiter().GetResult();
-
             WriteObject(operation.Value.Data, false);
         }
 
@@ -104,11 +103,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ClusterName = parentResourceName;
         }
 
-        private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes() 
+        private async Task<List<ServiceFabricManagedApplicationTypeData>> GetApplicationTypes(ServiceFabricManagedApplicationTypeCollection collection) 
         {
-            var collection = GetApplicationTypeCollection();
             var appTypes = new List<ServiceFabricManagedApplicationTypeData>();
-
             await foreach (ServiceFabricManagedApplicationTypeResource item in collection.GetAllAsync())
             {
                 appTypes.Add(item.Data);

@@ -56,7 +56,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true,
             HelpMessage = "The managed application type resource.")]
-        public PSManagedApplicationType InputObject { get; set; }
+        public ServiceFabricManagedApplicationTypeData InputObject { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = ByResourceGroup)]
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject)]

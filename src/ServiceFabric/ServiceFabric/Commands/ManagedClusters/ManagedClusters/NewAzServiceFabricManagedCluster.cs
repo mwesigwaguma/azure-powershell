@@ -206,7 +206,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
             var operation = await collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
-
+            //PollLongRunningOperation(operation);
             return operation.Value;
         }
 

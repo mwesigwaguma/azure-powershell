@@ -93,8 +93,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithRemovedClientCert();
                     ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithRemovedClientCert(collection);
 
                     ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = operation.Value;
@@ -116,9 +116,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert()
+        private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert(ServiceFabricManagedClusterCollection collection)
         {
-            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             var currentCluster = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             var clusterResource = currentCluster.Value;
 

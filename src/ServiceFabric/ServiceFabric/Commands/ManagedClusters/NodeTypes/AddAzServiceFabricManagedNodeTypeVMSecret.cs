@@ -83,8 +83,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret();
                     var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret(nodeTypeCollection);
                     var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
@@ -97,9 +97,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedSecret()
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedSecret(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
         {
-            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
             var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
             var currentNodeType = currentNodeTypeResource.Value.Data;
 

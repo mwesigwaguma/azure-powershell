@@ -97,12 +97,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
+                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
                     ServiceFabricManagedClusterData updatedClusterParams = null;
                     switch (ParameterSetName)
                     {
                         case WithParamsByName:
                         case WithParamsById:
-                            updatedClusterParams = this.GetUpdatedClusterParams();
+                            updatedClusterParams = this.GetUpdatedClusterParams(collection);
                             break;
                         case ByObj:
                             updatedClusterParams = this.InputObject;
@@ -110,8 +111,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         default:
                             throw new ArgumentException("Invalid parameter set", ParameterSetName);
                     }
-
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
 
                     ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
                     ServiceFabricManagedClusterResource result = operation.Value;
@@ -126,9 +125,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetUpdatedClusterParams()
+        private ServiceFabricManagedClusterData GetUpdatedClusterParams(ServiceFabricManagedClusterCollection collection)
         {
-            ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
             ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
             ServiceFabricManagedClusterData currentCluster = result.Data;
 
@@ -151,7 +149,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                currentCluster.Tags.Clear();
+                //currentCluster.Tags.Clear();
                 currentCluster.Tags.Add(this.Tag);
             }
 

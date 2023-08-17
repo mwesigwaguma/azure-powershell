@@ -97,8 +97,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension();
                     var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension(nodeTypeCollection);
                     var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
@@ -111,9 +111,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension()
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
         {
-            var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
             var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
             var currentNodeType = currentNodeTypeResource.Value.Data;
 

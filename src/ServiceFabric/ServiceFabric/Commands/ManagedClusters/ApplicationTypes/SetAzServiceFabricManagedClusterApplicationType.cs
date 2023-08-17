@@ -23,7 +23,7 @@ using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationType", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(new Type[] { typeof(bool), typeof(PSManagedApplicationType) })]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationType", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(new Type[] { typeof(bool), typeof(ServiceFabricManagedApplicationTypeData) })]
     public class SetAzServiceFabricManagedClusterApplicationType : ManagedApplicationCmdletBase
     {
         private const string ByResourceGroup = "ByResourceGroup";
@@ -62,7 +62,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true,
             HelpMessage = "The managed application type resource.")]
-        public PSManagedApplicationType InputObject { get; set; }
+        public ServiceFabricManagedApplicationTypeData InputObject { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = ByResourceGroup, HelpMessage = "Remove without prompt.")]
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject, HelpMessage = "Remove without prompt.")]
@@ -76,14 +76,16 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedApplicationTypeData updatedAppTypeParams = null;
+                var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
+
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
                     case ByResourceId:
-                        updatedAppTypeParams = this.GetUpdatedAppTypeParams();
+                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedApplicationTypecollection);
                         break;
                     case ByInputObject:
-                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(this.InputObject);
+                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedApplicationTypecollection, this.InputObject);
                         break;
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
@@ -91,7 +93,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeParams != null && ShouldProcess(target: this.Name, action: $"Update managed app type name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
                     var operation = sfManagedApplicationTypecollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams).GetAwaiter().GetResult();
                     var managedAppType = operation.Value;
 
@@ -105,15 +106,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeData inputObject = null)
+        private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeCollection sfManagedApplicationTypecollection, ServiceFabricManagedApplicationTypeData inputObject = null)
         {
             ServiceFabricManagedApplicationTypeData updatedAppType = null;
 
             if (inputObject == null)
             {
-                var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
                 var exists = sfManagedApplicationTypecollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
-
                 if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),

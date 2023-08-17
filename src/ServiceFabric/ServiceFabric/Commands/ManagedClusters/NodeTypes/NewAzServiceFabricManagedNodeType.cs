@@ -130,7 +130,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     else
                     {
                         var newNodeTypeParams = this.GetNewNodeTypeParameters();
-                        var nodeTypeResource = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newNodeTypeParams).GetAwaiter().GetResult().Value;
+                        var operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newNodeTypeParams).GetAwaiter().GetResult();
+                        var nodeTypeResource = operation.Value;
                         WriteObject(nodeTypeResource.Data, false);
                     }
                 }
