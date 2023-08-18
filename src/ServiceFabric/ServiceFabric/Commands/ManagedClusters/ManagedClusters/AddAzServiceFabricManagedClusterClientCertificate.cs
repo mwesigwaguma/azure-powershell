@@ -131,12 +131,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 case ClientCertByTpByName:
                 case ClientCertByTpByObj:
-                    newCert.Thumbprint = BinaryData.FromString(string.Join(",", this.Thumbprint));
+                    newCert.Thumbprint = BinaryData.FromObjectAsJson(this.Thumbprint);
                     break;
                 case ClientCertByCnByName:
                 case ClientCertByCnByObj:
                     newCert.CommonName = this.CommonName;
-                    newCert.IssuerThumbprint = this.IssuerThumbprint != null ? BinaryData.FromString(string.Join(",", this.IssuerThumbprint)) : null;
+                    foreach (string isuerThumbprint in this.IssuerThumbprint)
+                    {
+                        currentCluster.Clients.Add(new ManagedClusterClientCertificate(this.Admin.IsPresent)
+                        {
+                            CommonName = this.CommonName,
+                            IssuerThumbprint = this.IssuerThumbprint != null ? BinaryData.FromObjectAsJson(isuerThumbprint) : null,
+                        });
+                    };
                     break;
                 default:
                     throw new ArgumentException("Invalid parameter set", ParameterSetName);

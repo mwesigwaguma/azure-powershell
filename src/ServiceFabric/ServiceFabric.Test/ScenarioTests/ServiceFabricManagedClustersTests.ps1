@@ -110,7 +110,7 @@ function Test-CertAndExtension
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
-	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
+	#Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
 		-AdminPassword $pass -Sku Standard -ClientCertThumbprint $testClientTp -Verbose

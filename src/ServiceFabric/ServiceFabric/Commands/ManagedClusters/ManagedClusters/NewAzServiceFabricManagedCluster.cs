@@ -222,6 +222,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 throw new PSArgumentException("CodeVersion should only be used when upgrade mode is set to Manual.", "CodeVersion");
             }
 
+            if (string.IsNullOrEmpty(this.DnsName))
+            {
+                this.DnsName = this.Name;
+            }
+
             var newCluster = new ServiceFabricManagedClusterData(location: this.Location)
             {
                 DnsName = this.DnsName,
@@ -239,25 +244,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 newCluster.Clients.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
                 {
-                    Thumbprint = BinaryData.FromString(this.ClientCertThumbprint),
+                    Thumbprint = BinaryData.FromObjectAsJson(this.ClientCertThumbprint),
                 });
             }
             else if (this.ParameterSetName == ClientCertByCn)
             {
-                List<ManagedClusterClientCertificate> clientCerts = new List<ManagedClusterClientCertificate>();
                 foreach (string isuerThumbprint in this.ClientCertIssuerThumbprint)
                 {
                     newCluster.Clients.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
                     {
                         CommonName = this.ClientCertCommonName,
-                        IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? BinaryData.FromString(string.Join(",", isuerThumbprint)) : null,
+                        IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? BinaryData.FromObjectAsJson(isuerThumbprint) : null,
                     });
                 }
-            }
-
-            if (string.IsNullOrEmpty(this.DnsName))
-            {
-                this.DnsName = this.Name;
             }
 
             if (this.Tag != null)
