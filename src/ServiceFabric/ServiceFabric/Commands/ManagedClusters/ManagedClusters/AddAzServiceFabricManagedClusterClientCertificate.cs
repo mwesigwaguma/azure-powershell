@@ -131,7 +131,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 case ClientCertByTpByName:
                 case ClientCertByTpByObj:
-                    newCert.Thumbprint = BinaryData.FromString(this.Thumbprint);
+                    newCert.Thumbprint = BinaryData.FromString(string.Join(",", this.Thumbprint));
                     break;
                 case ClientCertByCnByName:
                 case ClientCertByCnByObj:

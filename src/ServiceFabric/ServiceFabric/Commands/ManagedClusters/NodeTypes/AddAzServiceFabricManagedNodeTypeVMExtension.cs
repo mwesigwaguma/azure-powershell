@@ -99,7 +99,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 {
                     var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
                     var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension(nodeTypeCollection);
-                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
+                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.NodeTypeName, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
                 }
@@ -113,7 +113,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
         {
-            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.NodeTypeName).GetAwaiter().GetResult();
             var currentNodeType = currentNodeTypeResource.Value.Data;
 
             var extensionToAdd = new NodeTypeVmssExtension(this.Name, this.Publisher, this.Type, this.TypeHandlerVersion)
@@ -124,11 +124,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 ProtectedSettings = (BinaryData)this.ProtectedSetting
             };
 
-            foreach(string provAfterExt in this.ProvisionAfterExtension)
+            if (this.ProvisionAfterExtension != null)
             {
-                extensionToAdd.ProvisionAfterExtensions.Add(provAfterExt);
+                foreach (string provAfterExt in this.ProvisionAfterExtension)
+                {
+                    extensionToAdd.ProvisionAfterExtensions.Add(provAfterExt);
+                }
             }
-
+            
             currentNodeType.VmExtensions.Add(extensionToAdd);
             return currentNodeType;
         }

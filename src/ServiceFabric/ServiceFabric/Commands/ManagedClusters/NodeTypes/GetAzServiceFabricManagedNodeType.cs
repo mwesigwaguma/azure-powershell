@@ -66,8 +66,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 if (!string.IsNullOrEmpty(this.Name))
                 {
                     var nodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
-
-                    WriteObject(nodeTypeResource.Value.Data, false);
+                    var data = nodeTypeResource.Value.Data;
+                    WriteObject(data, false);
                 }
                 else
                 {

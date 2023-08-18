@@ -222,30 +222,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 throw new PSArgumentException("CodeVersion should only be used when upgrade mode is set to Manual.", "CodeVersion");
             }
 
-            List<ManagedClusterClientCertificate> clientCerts = new List<ManagedClusterClientCertificate>();
-            if (this.ParameterSetName == ClientCertByTp)
-            {
-                clientCerts.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
-                {
-                    Thumbprint = BinaryData.FromString(this.ClientCertThumbprint),
-                });
-            }
-            else if (this.ParameterSetName == ClientCertByCn)
-            {
-                clientCerts.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
-                {
-                    CommonName = this.ClientCertCommonName,
-                    IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? BinaryData.FromString(string.Join(",", this.ClientCertIssuerThumbprint)) : null,
-                });
-            }
-
-            if (string.IsNullOrEmpty(this.DnsName))
-            {
-                this.DnsName = this.Name;
-            }
-
             var newCluster = new ServiceFabricManagedClusterData(location: this.Location)
-            { 
+            {
                 DnsName = this.DnsName,
                 AdminUserName = this.AdminUserName,
                 AdminPassword = this.AdminPassword.ToString(),
@@ -257,7 +235,30 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 HasZoneResiliency = this.ZonalResiliency.IsPresent,
             };
 
-            newCluster.Clients.Concat(clientCerts);
+            if (this.ParameterSetName == ClientCertByTp)
+            {
+                newCluster.Clients.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
+                {
+                    Thumbprint = BinaryData.FromString(this.ClientCertThumbprint),
+                });
+            }
+            else if (this.ParameterSetName == ClientCertByCn)
+            {
+                List<ManagedClusterClientCertificate> clientCerts = new List<ManagedClusterClientCertificate>();
+                foreach (string isuerThumbprint in this.ClientCertIssuerThumbprint)
+                {
+                    newCluster.Clients.Add(new ManagedClusterClientCertificate(this.ClientCertIsAdmin.IsPresent)
+                    {
+                        CommonName = this.ClientCertCommonName,
+                        IssuerThumbprint = this.ClientCertIssuerThumbprint != null ? BinaryData.FromString(string.Join(",", isuerThumbprint)) : null,
+                    });
+                }
+            }
+
+            if (string.IsNullOrEmpty(this.DnsName))
+            {
+                this.DnsName = this.Name;
+            }
 
             if (this.Tag != null)
             {

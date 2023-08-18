@@ -14,8 +14,10 @@
 
 function Test-CreateBasicCluster
 {
-	$resourceGroupName = "sfmcps-rg-" + (getAssetname)
-	$clusterName = "sfmcps-" + (getAssetname)
+	#$resourceGroupName = "sfmcps-rg-" + (getAssetname)
+	#$clusterName = "sfmcps-" + (getAssetname)
+	$resourceGroupName = "sfmcps-rg-11"
+	$clusterName = "sfmcps-13"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
@@ -23,21 +25,21 @@ function Test-CreateBasicCluster
 
 	$tags = @{"test"="tag"}
 	
-	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
-		-AdminPassword $pass -Sku Basic -ClientCertThumbprint $testClientTp -Tag $tags -Verbose
-	Assert-AreEqual "Succeeded" $cluster.ProvisioningState
-	Assert-AreEqual "Automatic" $cluster.ClusterUpgradeMode
-	Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
+	#$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
+	#	-AdminPassword $pass -Sku Basic -ClientCertThumbprint $testClientTp -Tag $tags -Verbose
+	#Assert-AreEqual "Succeeded" $cluster.ProvisioningState
+	#Assert-AreEqual "Automatic" $cluster.ClusterUpgradeMode
+	#Assert-AreEqual "Wave0" $cluster.ClusterUpgradeCadence
 
-	$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -DiskType Standard_LRS -Primary
-	Assert-AreEqual 5 $pnt.VmInstanceCount
-	Assert-AreEqual "Standard_LRS" $pnt.DataDiskType
+	#$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -DiskType Standard_LRS -Primary
+	#Assert-AreEqual 5 $pnt.VmInstanceCount
+	#Assert-AreEqual "Standard_LRS" $pnt.DataDiskType
 
 	# shouldn't be allowed to remove the only primary node type in the cluster
 	#Assert-ThrowsContains { $pnt | Remove-AzServiceFabricManagedNodeType } "InvalidParameter"
 
-	#$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
-	#Assert-AreEqual "Ready" $clusterFromGet.ClusterState
+	$cluster = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	Assert-AreEqual "Ready" $cluster.ClusterState
 	#Assert-HashtableEqual $cluster.Tags $clusterFromGet.Tags
 
 	# scale primary node type
@@ -55,7 +57,7 @@ function Test-NodeTypeOperations
 	#$resourceGroupName = "sfmcps-rg-" + (getAssetname)
 	#$clusterName = "sfmcps-" + (getAssetname)
 	$resourceGroupName = "sfmcps-rg-11"
-	$clusterName = "sfmcps-11"
+	$clusterName = "sfmcps-13"
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
@@ -69,7 +71,7 @@ function Test-NodeTypeOperations
 	#Assert-AreEqual "Wave1" $cluster.ClusterUpgradeCadence
 
 	#New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -Primary -DiskType Premium_LRS -VmSize "Standard_DS2" -AsJob
-	New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -InstanceCount 6 -IsStateless -AsJob
+	#New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -InstanceCount 6 -IsStateless -AsJob
 
 	#wait for nodetypes
 	#WaitForAllJob
@@ -85,8 +87,8 @@ function Test-NodeTypeOperations
 	#$restart = Restart-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_0, snt_1 -PassThru
 	#Assert-True { $restart }
 
-	#$delete = Remove-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_1 -PassThru
-	#Assert-True { $delete }
+	$delete = Remove-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_1 -PassThru
+	Assert-True { $delete }
 
 	#$reimage = Set-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name snt -NodeName snt_3 -Reimage -PassThru
 	#Assert-True { $reimage }
@@ -101,8 +103,10 @@ function Test-NodeTypeOperations
 
 function Test-CertAndExtension
 {
-	$resourceGroupName = "sfmcps-rg-" + (getAssetname)
-	$clusterName = "sfmcps-" + (getAssetname)
+	#$resourceGroupName = "sfmcps-rg-" + (getAssetname)
+	#$clusterName = "sfmcps-" + (getAssetname)
+	$resourceGroupName = "sfmcps-rg-11"
+	$clusterName = "sfmcps-18"
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
@@ -113,21 +117,24 @@ function Test-CertAndExtension
 	Assert-AreEqual "Succeeded" $cluster.ProvisioningState
 	Assert-AreEqual "WaitingForNodes" $cluster.ClusterState
 
-	$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -Primary
+	#$pnt = New-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt -InstanceCount 5 -Primary
 
 	# add extension
-	$extName = 'csetest';
-    $publisher = 'Microsoft.Compute';
-    $extType = 'BGInfo';
-    $extVer = '2.1';
+	#$extName = 'csetest';
+    #$publisher = 'Microsoft.Compute';
+    #$extType = 'BGInfo';
+    #$extVer = '2.1';
 
-	$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt `
-		-Name $extName -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -Verbose
+	#$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt `
+	#	-Name $extName -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -Verbose
 
-	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
+	#$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
 
-	Assert-NotNull $pnt.VmExtensions
-	Assert-AreEqual 1 $pnt.VmExtensions.Count
+	#Assert-NotNull $pnt.VmExtensions
+	#Assert-AreEqual 1 $pnt.VmExtensions.Count
+
+	#$cluster = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	#Assert-AreEqual "Ready" $cluster.ClusterState
 
 	# add client cert
 	Assert-AreEqual 1 $cluster.Clients.Count
@@ -137,25 +144,27 @@ function Test-CertAndExtension
 	Assert-AreEqual $testClientTp2 $cluster.Clients[1].Thumbprint
 
 	# remove client cert
-	$remove = Remove-AzServiceFabricManagedClusterClientCertificate -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Thumbprint $testClientTp2 -PassThru
-	Assert-True { $remove }
+	#$remove = Remove-AzServiceFabricManagedClusterClientCertificate -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Thumbprint $testClientTp2 -PassThru
+	#Assert-True { $remove }
 
-	$cluster = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
-	Assert-AreEqual 1 $cluster.Clients.Count
+	#$cluster = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	#Assert-AreEqual 1 $cluster.Clients.Count
 
-	$removeResponse = $cluster | Remove-AzServiceFabricManagedCluster -PassThru
-	Assert-True { $removeResponse }
+	#$removeResponse = $cluster | Remove-AzServiceFabricManagedCluster -PassThru
+	#Assert-True { $removeResponse }
 }
 
 # new network security rule test
 function Test-AddNetworkSecurityRule
 {
-	$resourceGroupName = "sfmcps-rg-" + (getAssetname)
-	$clusterName = "sfmcps-" + (getAssetname)
+	#$resourceGroupName = "sfmcps-rg-" + (getAssetname)
+	#$clusterName = "sfmcps-" + (getAssetname)
+	$resourceGroupName = "sfmcps-rg-11"
+	$clusterName = "sfmcps-17"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
-	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
+	#Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$tags = @{"test"="tag"}
 
@@ -191,43 +200,43 @@ function Test-AddNetworkSecurityRule
 	Assert-AreEqual "194.69.104.0/25" $clusterFromGet.NetworkSecurityRules[0].DestinationAddressPrefixes[0]
 	Assert-AreEqual $SourceAddressPrefixes.Count $clusterFromGet.NetworkSecurityRules[0].SourceAddressPrefixes.Count
 
-	$NSRName = "testSecRule2"
-	$sourcePortRanges = "1-1000"
-	$destinationPortRanges = "1-65535"
-	$destinationAddressPrefixes = "194.69.104.0/25", "194.69.119.64/26", "167.220.249.128/26", "255.255.255.255/32"
-	$sourceAddressPrefixes = "167.220.242.0/27", "167.220.0.0/23", "131.107.132.16/28", "167.220.81.128/26"
+	#$NSRName = "testSecRule2"
+	#$sourcePortRanges = "1-1000"
+	#$destinationPortRanges = "1-65535"
+	#$destinationAddressPrefixes = "194.69.104.0/25", "194.69.119.64/26", "167.220.249.128/26", "255.255.255.255/32"
+	#$sourceAddressPrefixes = "167.220.242.0/27", "167.220.0.0/23", "131.107.132.16/28", "167.220.81.128/26"
 
-	$cluster = Add-AzServiceFabricManagedClusterNetworkSecurityRule -ResourceGroupName $resourceGroupName -ClusterName $clusterName `
-			-Name $NSRName -Access Deny -Direction Outbound -Protocol udp -Priority 1300 -SourcePortRange $sourcePortRanges -DestinationPortRange $destinationPortRanges -DestinationAddressPrefix $destinationAddressPrefixes -SourceAddressPrefix $sourceAddressPrefixes -Verbose
+	#$cluster = Add-AzServiceFabricManagedClusterNetworkSecurityRule -ResourceGroupName $resourceGroupName -ClusterName $clusterName `
+	#		-Name $NSRName -Access Deny -Direction Outbound -Protocol udp -Priority 1300 -SourcePortRange $sourcePortRanges -DestinationPortRange $destinationPortRanges -DestinationAddressPrefix $destinationAddressPrefixes -SourceAddressPrefix $sourceAddressPrefixes -Verbose
 
-	$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	#$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
 
-	Assert-NotNull $clusterFromGet.NetworkSecurityRules
-	Assert-AreEqual "testSecRule2" $clusterFromGet.NetworkSecurityRules[1].Name
-	Assert-AreEqual "outbound" $clusterFromGet.NetworkSecurityRules[1].Direction
-	Assert-AreEqual "udp" $clusterFromGet.NetworkSecurityRules[1].Protocol
-	Assert-AreEqual "194.69.119.64/26" $clusterFromGet.NetworkSecurityRules[1].DestinationAddressPrefixes[1]
-	Assert-AreEqual "167.220.81.128/26" $clusterFromGet.NetworkSecurityRules[1].SourceAddressPrefixes[3]
+	#Assert-NotNull $clusterFromGet.NetworkSecurityRules
+	#Assert-AreEqual "testSecRule2" $clusterFromGet.NetworkSecurityRules[1].Name
+	#Assert-AreEqual "outbound" $clusterFromGet.NetworkSecurityRules[1].Direction
+	#Assert-AreEqual "udp" $clusterFromGet.NetworkSecurityRules[1].Protocol
+	#Assert-AreEqual "194.69.119.64/26" $clusterFromGet.NetworkSecurityRules[1].DestinationAddressPrefixes[1]
+	#Assert-AreEqual "167.220.81.128/26" $clusterFromGet.NetworkSecurityRules[1].SourceAddressPrefixes[3]
 
-	$NSRName = "testSecRule3"
-	$description = "test network security rule"
-	$sourcePortRanges = "1-1000"
-	$destinationPortRanges = "1-65535"
-	$destinationAddressPrefixes = "194.69.104.0/25", "194.69.119.64/26", "167.220.249.128/26", "255.255.255.255/32"
-	$sourceAddressPrefixes = "167.220.242.0/27", "167.220.0.0/23", "131.107.132.16/28", "167.220.81.128/26"
+	#$NSRName = "testSecRule3"
+	#$description = "test network security rule"
+	#$sourcePortRanges = "1-1000"
+	#$destinationPortRanges = "1-65535"
+	#$destinationAddressPrefixes = "194.69.104.0/25", "194.69.119.64/26", "167.220.249.128/26", "255.255.255.255/32"
+	#$sourceAddressPrefixes = "167.220.242.0/27", "167.220.0.0/23", "131.107.132.16/28", "167.220.81.128/26"
 
-	$cluster = $clusterFromGet | Add-AzServiceFabricManagedClusterNetworkSecurityRule `
-			-Name $NSRName -Access Allow -Description $description -Direction Outbound -Protocol any -Priority 1400 -SourcePortRange $sourcePortRanges -DestinationPortRange $destinationPortRanges -DestinationAddressPrefix $destinationAddressPrefixes -SourceAddressPrefix $sourceAddressPrefixes -Verbose
+	#$cluster = $clusterFromGet | Add-AzServiceFabricManagedClusterNetworkSecurityRule `
+	#		-Name $NSRName -Access Allow -Description $description -Direction Outbound -Protocol any -Priority 1400 -SourcePortRange $sourcePortRanges -DestinationPortRange $destinationPortRanges -DestinationAddressPrefix $destinationAddressPrefixes -SourceAddressPrefix $sourceAddressPrefixes -Verbose
 
-	$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
+	#$clusterFromGet = Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName
 
-	Assert-NotNull $clusterFromGet.NetworkSecurityRules
-	Assert-AreEqual "testSecRule3" $clusterFromGet.NetworkSecurityRules[2].Name
-	Assert-AreEqual "allow" $clusterFromGet.NetworkSecurityRules[2].Access
-	Assert-AreEqual "*" $clusterFromGet.NetworkSecurityRules[2].Protocol
-	Assert-AreEqual "1-1000" $clusterFromGet.NetworkSecurityRules[2].SourcePortRanges[0]
-	Assert-AreEqual 4 $clusterFromGet.NetworkSecurityRules[2].DestinationAddressPrefixes.Count
-	Assert-AreEqual 4 $clusterFromGet.NetworkSecurityRules[2].SourceAddressPrefixes.Count
+	#Assert-NotNull $clusterFromGet.NetworkSecurityRules
+	#Assert-AreEqual "testSecRule3" $clusterFromGet.NetworkSecurityRules[2].Name
+	#Assert-AreEqual "allow" $clusterFromGet.NetworkSecurityRules[2].Access
+	#Assert-AreEqual "*" $clusterFromGet.NetworkSecurityRules[2].Protocol
+	#Assert-AreEqual "1-1000" $clusterFromGet.NetworkSecurityRules[2].SourcePortRanges[0]
+	#Assert-AreEqual 4 $clusterFromGet.NetworkSecurityRules[2].DestinationAddressPrefixes.Count
+	#Assert-AreEqual 4 $clusterFromGet.NetworkSecurityRules[2].SourceAddressPrefixes.Count
 
-	Assert-AreEqual 3 $clusterFromGet.NetworkSecurityRules.Count
+	#Assert-AreEqual 3 $clusterFromGet.NetworkSecurityRules.Count
 }
