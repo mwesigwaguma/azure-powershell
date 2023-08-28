@@ -15,9 +15,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
-using Azure.Core;
+using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
@@ -27,11 +26,9 @@ using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplication", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(typeof(PSManagedApplication))]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplication", DefaultParameterSetName = ByResourceGroup, SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedApplicationData))]
     public class SetAzServiceFabricManagedClusterApplication : ManagedApplicationCmdletBase
     {
-        private ServiceFabricManagedApplicationResource currentAppResource;
-
         private const string ByResourceGroup = "ByResourceGroup";
         private const string ByInputObject = "ByInputObject";
         private const string ByResourceId = "ByResourceId";
@@ -83,7 +80,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject,
             HelpMessage = "Specify the application parameters as key/value pairs. These parameters must exist in the application manifest.")]
         [ValidateNotNullOrEmpty]
-        public KeyValuePair<string, string> ApplicationParameter { get; set; }
+        public Hashtable ApplicationParameter { get; set; }
 
         #region upgrade policy params
 
@@ -245,7 +242,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         #endregion
 
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, HelpMessage = "Specify the tags as key/value pairs.")]
-        public KeyValuePair<string, string> Tag { get; set; }
+        public Hashtable Tag { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByResourceId, ValueFromPipelineByPropertyName = true,
             HelpMessage = "Arm ResourceId of the managed application.")]
@@ -255,7 +252,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true,
             HelpMessage = "The managed application resource.")]
-        public PSManagedApplication InputObject { get; set; }
+        public ServiceFabricManagedApplicationData InputObject { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Continue without prompts")]
         public SwitchParameter Force { get; set; }
@@ -270,14 +267,16 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedApplicationData updatedAppParams = null;
-                switch (ParameterSetName)
+                var sfManagedApplicationCollection = this.GetSfManagedApplicationCollection();
+
+                switch (ParameterSetName)   
                 {
                     case ByResourceGroup:
                     case ByResourceId:
-                        updatedAppParams = this.GetUpdatedAppParams();
+                        updatedAppParams = this.GetUpdatedAppParams(sfManagedApplicationCollection);
                         break;
                     case ByInputObject:
-                        updatedAppParams = this.GetUpdatedAppParams(this.InputObject);
+                        updatedAppParams = this.GetUpdatedAppParams(sfManagedApplicationCollection, this.InputObject);
                         break;
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
@@ -285,20 +284,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppParams != null && ShouldProcess(target: this.Name, action: $"Update managed application name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-
-                    //  ???????????????????????????????????
-                    /* var beginRequestResponse = this.SfrpMcClient.Applications.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.Name, updatedAppParams)
-                         .GetAwaiter().GetResult();
-
-                     var managedApp = this.PollLongRunningOperation(beginRequestResponse);*/
-
-                    ServiceFabricManagedApplicationPatch patch = new ServiceFabricManagedApplicationPatch();
-                    patch.Tags.Add(this.Tag);
-
-                    ServiceFabricManagedApplicationResource result =  currentAppResource.UpdateAsync(patch).GetAwaiter().GetResult();
-                    var managedApp = result.Data;
-
-                    WriteObject(new PSManagedApplication(managedApp), false);
+                    var operation = sfManagedApplicationCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppParams).GetAwaiter().GetResult();
+                    WriteObject(operation.Value.Data, false);
                 }
             }
             catch (Exception ex)
@@ -308,32 +295,22 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedApplicationData GetUpdatedAppParams(ServiceFabricManagedApplicationData inputObject = null)
+        private ServiceFabricManagedApplicationData GetUpdatedAppParams(ServiceFabricManagedApplicationCollection sfManagedApplicationCollection, ServiceFabricManagedApplicationData inputObject = null)
         {
-            ServiceFabricManagedApplicationData currentApp;
-
+            ServiceFabricManagedApplicationData currentApp = null;
             if (inputObject == null)
             {
-
-                ResourceIdentifier serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
-                    this.DefaultContext.Subscription.Id,
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    this.Name);
-
-                currentAppResource = SafeGetResource(() =>
-                    this.ArmClient.GetServiceFabricManagedApplicationResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
-
-
-                if (currentAppResource == null)
+                var exists = sfManagedApplicationCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+                if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                    //return currentApp;
+                    
                     return null;
                 }
 
-                currentApp = currentAppResource.Data;
+                var appResource = sfManagedApplicationCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                currentApp = appResource.Data;
             }
             else
             {
@@ -349,12 +326,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
             if (this.IsParameterBound(c => c.ApplicationParameter))
             {
-                currentApp.Parameters.Add(this.ApplicationParameter);
+                this.AddToList(currentApp.Parameters, this.ApplicationParameter);
             }
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                currentApp.Tags.Add(this.Tag);
+                this.AddToList(currentApp.Tags, this.Tag);
             }
 
             currentApp.UpgradePolicy = SetUpgradePolicy(currentApp.UpgradePolicy);

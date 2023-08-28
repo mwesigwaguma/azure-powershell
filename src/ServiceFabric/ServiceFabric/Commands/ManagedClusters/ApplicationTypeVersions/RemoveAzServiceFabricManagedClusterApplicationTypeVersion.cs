@@ -18,8 +18,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -61,7 +59,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true,
             HelpMessage = "The managed application type version resource.")]
-        public PSManagedApplicationTypeVersion InputObject { get; set; }
+        public ServiceFabricManagedApplicationTypeVersionData InputObject { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = ByResourceGroup)]
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject)]
@@ -110,8 +108,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var appTypeVersionCollection = GetApplicationTypeVersionCollection(this.Name);
-                            var applicationTypeVersionResource = appTypeVersionCollection.GetAsync(this.Version).GetAwaiter().GetResult().Value;
+                            var sfManagedAppTypeVersionCollection = this.GetSfManagedApplicationTypeVersionCollection(this.Name);
+                            var applicationTypeVersionResource = sfManagedAppTypeVersionCollection.GetAsync(this.Version).GetAwaiter().GetResult().Value;
                             applicationTypeVersionResource?.DeleteAsync(WaitUntil.Completed).Wait();
 
                             if (PassThru)

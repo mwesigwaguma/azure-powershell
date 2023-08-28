@@ -12,16 +12,12 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
 using System.Management.Automation;
 using System.Threading.Tasks;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -61,7 +57,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
-                var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var sfManagedNodetypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
 
                 if (!string.IsNullOrEmpty(this.Name))
                 {
@@ -72,7 +68,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 else
                 {
 
-                    var nodeTypeList = GetNodeTypes(sfManagedNodetypeCollection).Result;
+                    var nodeTypeList = this.GetNodeTypes(sfManagedNodetypeCollection).GetAwaiter().GetResult();
                     WriteObject(nodeTypeList, true);
                 }
             }
@@ -91,7 +87,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 nodeTypeList.Add(item.Data);
             }
 
-            return nodeTypeList;
+            return nodeTypeList.Count > 0 ? nodeTypeList : null;
         }
     }
 }

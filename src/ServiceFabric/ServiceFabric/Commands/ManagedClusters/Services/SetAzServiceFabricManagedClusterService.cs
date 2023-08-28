@@ -14,20 +14,18 @@
 
 using System;
 using System.Collections;
-using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", SupportsShouldProcess = true, DefaultParameterSetName = StatelessByResourceGroup), OutputType(typeof(PSManagedService))]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", SupportsShouldProcess = true, DefaultParameterSetName = StatelessByResourceGroup), OutputType(typeof(ServiceFabricManagedServiceData))]
     public class SetAzServiceFabricManagedClusterService : ManagedApplicationCmdletBase
     {
         private const string StatelessByResourceGroup = "Stateless-ByResourceGroup";
@@ -82,7 +80,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = StatelessByInputObject, ValueFromPipeline = true, HelpMessage = "The managed service resource.")]
         [Parameter(Mandatory = true, ParameterSetName = StatefulByInputObject, ValueFromPipeline = true, HelpMessage = "The managed service resource.")]
-        public PSManagedService InputObject { get; set; }
+        public ServiceFabricManagedServiceData InputObject { get; set; }
 
         #endregion
 
@@ -247,7 +245,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
         [Parameter(Mandatory = false, ParameterSetName = StatelessByInputObject,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
-        public PSServiceMetric[] Metric { get; set; }
+        public ManagedServiceLoadMetric[] Metric { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = StatefulByResourceGroup,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
@@ -261,7 +259,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
         [Parameter(Mandatory = false, ParameterSetName = StatelessByInputObject,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
-        public PSServiceCorrelation[] Correlation { get; set; }
+        public ManagedServiceCorrelation[] Correlation { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = StatefulByResourceGroup,
             HelpMessage = "Specify the default cost for a move. Higher costs make it less likely that the Cluster Resource Manager will move the replica when trying to balance the cluster")]
@@ -296,30 +294,28 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                ServiceResource updatedServiceParams = null;
+                ServiceFabricManagedServiceData updatedServiceParams = null;
+                var sfManagedServiceCollection = this.GetSfManagedServiceCollection(this.ApplicationName);
+
                 switch (ParameterSetName)
                 {
                     case StatefulByResourceGroup:
                     case StatelessByResourceGroup:
                     case StatefulByResourceId:
                     case StatelessByResourceId:
-                        updatedServiceParams = this.GetUpdatedServiceParams();
+                        updatedServiceParams = this.GetUpdatedServiceParams(sfManagedServiceCollection);
                         break;
                     case StatefulByInputObject:
                     case StatelessByInputObject:
-                        updatedServiceParams = this.GetUpdatedServiceParams(this.InputObject);
+                        updatedServiceParams = this.GetUpdatedServiceParams(sfManagedServiceCollection, this.InputObject);
                         break;
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
                 }
                 if (updatedServiceParams != null && ShouldProcess(target: this.Name, action: $"Update managed service name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var beginRequestResponse = this.SfrpMcClient.Services.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.ApplicationName, this.Name, updatedServiceParams)
-                        .GetAwaiter().GetResult();
-
-                    var managedService = this.PollLongRunningOperation(beginRequestResponse);
-
-                    WriteObject(PSManagedService.GetInstance(managedService), false);
+                    var serviceResource = sfManagedServiceCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedServiceParams).GetAwaiter().GetResult().Value;
+                    WriteObject(serviceResource.Data, false);
                 }
             }
             catch (Exception ex)
@@ -329,38 +325,36 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceResource GetUpdatedServiceParams(PSManagedService inputObject = null)
+        private ServiceFabricManagedServiceData GetUpdatedServiceParams(ServiceFabricManagedServiceCollection sfManagedServiceCollection, ServiceFabricManagedServiceData inputObject = null)
         {
-            ServiceResource currentService;
+            ServiceFabricManagedServiceData currentServiceData = null;
             if (inputObject == null)
             {
-                currentService = SafeGetResource(() =>
-                    this.SfrpMcClient.Services.Get(
-                        this.ResourceGroupName,
-                        this.ClusterName,
-                        this.ApplicationName,
-                        this.Name),
-                    false);
-
-                if (currentService == null)
+                var exists = sfManagedServiceCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+                if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed Service '{this.Name}' does not exist."),
                         "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
-                    return currentService;
+                    return null;
                 }
+
+                var serviceResource = sfManagedServiceCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                currentServiceData = serviceResource.Data;
+
             }
             else
             {
-                currentService = inputObject.ToServiceResource();
+                currentServiceData = inputObject;
             }
 
             WriteVerbose($"Updating managed service '{this.Name}.'");
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                currentService.Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string);
+                this.AddToList(currentServiceData.Tags, this.Tag);
             }
-            ServiceResourceProperties properties = currentService.Properties;
+
+            ManagedServiceProperties properties = currentServiceData.Properties;
 
             if (this.Stateless.ToBool())
             {
@@ -385,19 +379,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 StatefulServiceProperties statefulProperties = properties as StatefulServiceProperties;
                 if (this.IsParameterBound(c => c.ServicePlacementTimeLimit))
                 {
-                    statefulProperties.ServicePlacementTimeLimit = this.ServicePlacementTimeLimit.ToString();
+                    statefulProperties.ServicePlacementTimeLimit = this.ServicePlacementTimeLimit;
                 }
                 if (this.IsParameterBound(c => c.StandByReplicaKeepDuration))
                 {
-                    statefulProperties.StandByReplicaKeepDuration = this.StandByReplicaKeepDuration.ToString();
+                    statefulProperties.StandByReplicaKeepDuration = this.StandByReplicaKeepDuration;
                 }
                 if (this.IsParameterBound(c => c.QuorumLossWaitDuration))
                 {
-                    statefulProperties.QuorumLossWaitDuration = this.QuorumLossWaitDuration.ToString();
+                    statefulProperties.QuorumLossWaitDuration = this.QuorumLossWaitDuration;
                 }
                 if (this.IsParameterBound(c => c.ReplicaRestartWaitDuration))
                 {
-                    statefulProperties.ReplicaRestartWaitDuration = this.ReplicaRestartWaitDuration.ToString();
+                    statefulProperties.ReplicaRestartWaitDuration = this.ReplicaRestartWaitDuration;
                 }
                 if (this.IsParameterBound(c => c.HasPersistedState))
                 {
@@ -414,10 +408,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
             SetCommonProperties(properties);
 
-            return currentService;
+            return currentServiceData;
         }
 
-        private void SetCommonProperties(ServiceResourceProperties properties)
+        private void SetCommonProperties(ManagedServiceProperties properties)
         {
             if (this.IsParameterBound(c => c.ServicePackageActivationMode))
             {
@@ -433,11 +427,17 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
             if (this.IsParameterBound(c => c.Metric))
             {
-                properties.ServiceLoadMetrics = this.Metric;
+                foreach(ManagedServiceLoadMetric metric in this.Metric)
+                {
+                    properties.ServiceLoadMetrics.Add(metric);
+                }
             }
             if (this.IsParameterBound(c => c.Correlation))
             {
-                properties.CorrelationScheme = this.Correlation;
+                foreach (ManagedServiceCorrelation scheme in this.Correlation)
+                {
+                    properties.CorrelationScheme.Add(scheme);
+                }
             }
         }
 

@@ -19,11 +19,10 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using System.Threading.Tasks;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(PSManagedApplicationTypeVersion))]
+    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(ServiceFabricManagedApplicationTypeVersionData))]
     public class GetAzServiceFabricManagedClusterApplicationTypeVersion : ManagedApplicationCmdletBase
     {
         private const string ByResourceGroupAndCluster = "ByResourceGroupAndCluster";
@@ -72,18 +71,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
+                var sfManagedAppTypeVersionCollection = this.GetSfManagedApplicationTypeVersionCollection(this.Name);
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppTypeVersionList = GetApplicationTypeVersions().GetAwaiter().GetResult();
+                        var managedAppTypeVersionList = this.GetApplicationTypeVersions(sfManagedAppTypeVersionCollection).GetAwaiter().GetResult();
                         WriteObject(managedAppTypeVersionList, true);
                         break;
                     case ByVersion:
-                        GetByVersion();
+                        GetByVersion(sfManagedAppTypeVersionCollection);
                         break;
                     case ByResourceId:
                         SetParametersByResourceId(this.ResourceId);
-                        GetByVersion();
+                        GetByVersion(sfManagedAppTypeVersionCollection);
                         break;
                     default:
                         throw new PSArgumentException("Invalid ParameterSetName");
@@ -96,12 +96,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private void GetByVersion()
+        private void GetByVersion(ServiceFabricManagedApplicationTypeVersionCollection sfManagedAppTypeVersionCollection)
         {
-            ServiceFabricManagedApplicationTypeVersionCollection collection = GetApplicationTypeVersionCollection(this.Name);
-            ServiceFabricManagedApplicationTypeVersionResource managedAppTypeVersion = collection.GetAsync(this.Version).GetAwaiter().GetResult();
-
-            WriteObject(managedAppTypeVersion.Data, false);
+            var managedAppTypeVersionResource = sfManagedAppTypeVersionCollection.GetAsync(this.Version).GetAwaiter().GetResult().Value;
+            WriteObject(managedAppTypeVersionResource.Data, false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -114,17 +112,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         }
 
 
-        private async Task<List<ServiceFabricManagedApplicationTypeVersionData>> GetApplicationTypeVersions()
+        private async Task<List<ServiceFabricManagedApplicationTypeVersionData>> GetApplicationTypeVersions(ServiceFabricManagedApplicationTypeVersionCollection sfManagedAppTypeVersionCollection)
         {
-            ServiceFabricManagedApplicationTypeVersionCollection collection = GetApplicationTypeVersionCollection(this.Name);
-            
-            List<ServiceFabricManagedApplicationTypeVersionData> appTypeVersions = new List<ServiceFabricManagedApplicationTypeVersionData>();
-            await foreach (ServiceFabricManagedApplicationTypeVersionResource item in collection.GetAllAsync())
+            var appTypeVersionList = new List<ServiceFabricManagedApplicationTypeVersionData>();
+            await foreach (ServiceFabricManagedApplicationTypeVersionResource item in sfManagedAppTypeVersionCollection.GetAllAsync())
             {
-                appTypeVersions.Add(item.Data);
+                appTypeVersionList.Add(item.Data);
             } 
 
-            return appTypeVersions;
+            return appTypeVersionList.Count > 0 ? appTypeVersionList : null;
         }
     }
 }

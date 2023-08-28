@@ -17,9 +17,8 @@ using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.Core;
-using Azure.ResourceManager;
 using Azure;
-using System.Collections.Generic;
+using System.Collections;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -45,10 +44,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [ValidateNotNullOrEmpty]
         public virtual string ClusterName { get; set; }
 
-        protected ServiceFabricManagedApplicationTypeResource CreateManagedApplicationType(string applicationTypeName, string location, KeyValuePair<string, string> tags, bool errorIfPresent = true)
+        protected ServiceFabricManagedApplicationTypeResource CreateManagedApplicationType(
+            string applicationTypeName, 
+            string location, 
+            Hashtable tags, 
+            bool errorIfPresent = true)
         {
-            var appTypeCollection = GetApplicationTypeCollection();
-            var exists = appTypeCollection.ExistsAsync(applicationTypeName).GetAwaiter().GetResult().Value;
+            var sfManagedAppTypeCollection = this.GetSfManagedApplicationTypeCollection();
+            var exists = sfManagedAppTypeCollection.ExistsAsync(applicationTypeName).GetAwaiter().GetResult().Value;
             if(exists)
             {
                 if (errorIfPresent)
@@ -61,29 +64,37 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     WriteVerbose($"Managed app type '{applicationTypeName}' already exists.");
                 }
 
-                return appTypeCollection.GetAsync(applicationTypeName).GetAwaiter().GetResult().Value;
+                return sfManagedAppTypeCollection.GetAsync(applicationTypeName).GetAwaiter().GetResult().Value;
             }
             else
             {
-                var collection = GetApplicationTypeCollection();
                 var data = new ServiceFabricManagedApplicationTypeData(new AzureLocation(location));
-                data.Tags.Add(tags);
+                if (tags != null)
+                {
+                    this.AddToList(data.Tags, tags);
+                }
 
-                var operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, applicationTypeName, data).GetAwaiter().GetResult();
-                var result =  operation.Value;
-                return result;
+                var operation = sfManagedAppTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, applicationTypeName, data).GetAwaiter().GetResult();
+                var sfManagedAppTypeResource =  operation.Value;
+                return sfManagedAppTypeResource;
             }
         }
 
-        protected ServiceFabricManagedApplicationTypeVersionResource CreateManagedApplicationTypeVersion(string applicationTypeName, string typeVersion, string location, string packageUrl, bool force, KeyValuePair<string, string> tags)
+        protected ServiceFabricManagedApplicationTypeVersionResource CreateManagedApplicationTypeVersion(
+            string applicationTypeName, 
+            string typeVersion, 
+            string location, 
+            string packageUrl, 
+            bool force, 
+            Hashtable tags)
         {
             ServiceFabricManagedApplicationTypeVersionResource applicationTypeVersionResource = null;
-            var appTypeVersionCollection = GetApplicationTypeVersionCollection(applicationTypeName);
-            var exists = appTypeVersionCollection.ExistsAsync(typeVersion).GetAwaiter().GetResult().Value;
+            var sfManagedAppTypeVersionCollection = this.GetSfManagedApplicationTypeVersionCollection(applicationTypeName);
+            var exists = sfManagedAppTypeVersionCollection.ExistsAsync(typeVersion).GetAwaiter().GetResult().Value;
 
             if (exists)
             {
-                applicationTypeVersionResource = appTypeVersionCollection.GetAsync(typeVersion).GetAwaiter().GetResult().Value;
+                applicationTypeVersionResource = sfManagedAppTypeVersionCollection.GetAsync(typeVersion).GetAwaiter().GetResult().Value;
                 if (applicationTypeVersionResource.Data?.ProvisioningState == "Failed")
                 {
                     WriteVerbose($"Managed application type version '{applicationTypeName}':{typeVersion} already exists.");
@@ -95,7 +106,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         () =>
                         {
                             applicationTypeVersionResource = CreateOrUpdateApplicationTypeVersion(
-                                appTypeVersionCollection,
+                                sfManagedAppTypeVersionCollection,
                                 applicationTypeName: applicationTypeName,
                                 typeVersion: typeVersion,
                                 location: location,
@@ -105,14 +116,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 }
                 else
                 {
-                    WriteError(new ErrorRecord(new InvalidOperationException($"Managed app type version '{applicationTypeName}' already exists."),
+                    WriteError(new ErrorRecord(new InvalidOperationException($"Managed app type version '{typeVersion}' already exists."),
                         "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
                 }
             }
             else
             {
                 applicationTypeVersionResource = CreateOrUpdateApplicationTypeVersion(
-                    appTypeVersionCollection,
+                    sfManagedAppTypeVersionCollection,
                     applicationTypeName: applicationTypeName,
                     typeVersion: typeVersion,
                     location: location,
@@ -128,49 +139,73 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return applicationTypeVersionResource;
         }
 
-        private ServiceFabricManagedApplicationTypeVersionResource CreateOrUpdateApplicationTypeVersion(ServiceFabricManagedApplicationTypeVersionCollection collection, string applicationTypeName, string typeVersion, string location, string packageUrl, KeyValuePair<string, string> tags)
+        private ServiceFabricManagedApplicationTypeVersionResource CreateOrUpdateApplicationTypeVersion(
+            ServiceFabricManagedApplicationTypeVersionCollection sfManagedAppTypeVersionCollection, 
+            string applicationTypeName, 
+            string typeVersion, string location, 
+            string packageUrl, 
+            Hashtable tags)
         {
             WriteVerbose($"Creating managed app type version '{applicationTypeName}':{typeVersion}.");
 
-            ServiceFabricManagedApplicationTypeVersionData data = new ServiceFabricManagedApplicationTypeVersionData(new AzureLocation(location))
+            var sfManagedAppTypeVersionData = new ServiceFabricManagedApplicationTypeVersionData(new AzureLocation(location))
             {
                 AppPackageUri = new Uri(packageUrl),
             };
 
-            data.Tags.Add(tags);
+            if (tags != null)
+            {
+                this.AddToList(sfManagedAppTypeVersionData.Tags, tags);
+            }
 
 
-            ArmOperation<ServiceFabricManagedApplicationTypeVersionResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, typeVersion, data).GetAwaiter().GetResult();
-            ServiceFabricManagedApplicationTypeVersionResource result = operation.Value;
+            var operation = sfManagedAppTypeVersionCollection.CreateOrUpdateAsync(WaitUntil.Completed, typeVersion, sfManagedAppTypeVersionData).GetAwaiter().GetResult();
+            var result = operation.Value;
 
             return result;
         }
 
-        protected ServiceFabricManagedApplicationTypeCollection GetApplicationTypeCollection()
+        protected ServiceFabricManagedApplicationTypeCollection GetSfManagedApplicationTypeCollection()
         {
             var serviceFabricManagedClusterResource = GetManagedClusterResource(this.ResourceGroupName, this.ClusterName);
-            var sfManagedApptypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedApplicationTypes();
+            var sfManagedAppTypeCollection = serviceFabricManagedClusterResource.GetServiceFabricManagedApplicationTypes();
 
-            return sfManagedApptypeCollection;
+            return sfManagedAppTypeCollection;
         }
 
-        protected ServiceFabricManagedApplicationTypeVersionCollection GetApplicationTypeVersionCollection( string applicationName)
+        protected ServiceFabricManagedApplicationTypeVersionCollection GetSfManagedApplicationTypeVersionCollection( string applicationName)
         {
-            ResourceIdentifier serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
+            var serviceFabricManagedApplicationTypeResourceId = ServiceFabricManagedApplicationTypeResource.CreateResourceIdentifier(
                 this.DefaultContext.Subscription.Id,
                 this.ResourceGroupName,
                 this.ClusterName,
                 applicationName);
 
-            ServiceFabricManagedApplicationTypeResource serviceFabricManagedApplicatioinType = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
-            ServiceFabricManagedApplicationTypeVersionCollection collection = serviceFabricManagedApplicatioinType.GetServiceFabricManagedApplicationTypeVersions();
+            var sfAppTypeResource = this.ArmClient.GetServiceFabricManagedApplicationTypeResource(serviceFabricManagedApplicationTypeResourceId);
+            var sfManagedAppTypeVersionCollection = sfAppTypeResource.GetServiceFabricManagedApplicationTypeVersions();
 
-            return collection;
+            return sfManagedAppTypeVersionCollection;
         }
 
-       /* protected ServiceFabricManagedServiceCollection GetSfManagedClusterServiceCollection()
-        { 
-        
-        }*/
+        protected ServiceFabricManagedApplicationCollection GetSfManagedApplicationCollection() 
+        {
+            var sfManagedClusterResource = GetManagedClusterResource(this.ResourceGroupName, this.ClusterName);
+            var sfManagedApplicationCollection = sfManagedClusterResource.GetServiceFabricManagedApplications();
+            return sfManagedApplicationCollection;
+        }
+
+        protected ServiceFabricManagedServiceCollection GetSfManagedServiceCollection(string applicationName)
+        {
+            var serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
+                this.DefaultContext.Subscription.Id, 
+                this.ResourceGroupName, 
+                this.ClusterName, 
+                applicationName);
+
+            var sfManagedAppResource = this.ArmClient.GetServiceFabricManagedApplicationResource(serviceFabricManagedApplicationResourceId);
+            var sfManagedServiceCollection = sfManagedAppResource.GetServiceFabricManagedServices();
+
+            return sfManagedServiceCollection;
+        }
     }
 }

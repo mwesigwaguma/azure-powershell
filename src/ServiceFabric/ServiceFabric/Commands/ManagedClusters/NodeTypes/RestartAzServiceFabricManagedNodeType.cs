@@ -69,11 +69,12 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var nodeTypecollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                    var serviceFabricManagedNodeTypeResource = nodeTypecollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
-
-                    var nodeTypeContentAction = new NodeTypeActionContent();
-                    nodeTypeContentAction.IsForced = this.ForceRestart.IsPresent;
+                    var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var serviceFabricManagedNodeTypeResource = sfManageNodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                    var nodeTypeContentAction = new NodeTypeActionContent
+                    {
+                        IsForced = this.ForceRestart.IsPresent
+                    };
 
                     foreach (String node in this.NodeName)
                     {

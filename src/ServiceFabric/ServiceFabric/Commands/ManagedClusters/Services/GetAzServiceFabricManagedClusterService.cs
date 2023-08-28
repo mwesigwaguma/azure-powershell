@@ -13,21 +13,16 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Linq;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(PSManagedService))]
+    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(ServiceFabricManagedServiceData))]
     public class GetAzServiceFabricManagedClusterService : ManagedApplicationCmdletBase
     {
         private const string ByResourceGroupAndCluster = "ByResourceGroupAndCluster";
@@ -75,19 +70,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
-                var sfManagedServiceCollection = GetSfManagedClusterServiceCollection();
+                var sfManagedServiceCollection = this.GetSfManagedServiceCollection(this.ApplicationName);
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        
-                        WriteObject(managedServiceList.Select(service => PSManagedService.GetInstance(service)), true);
+                        var serviceList = this.GetSfManagedClusterServices(sfManagedServiceCollection).GetAwaiter().GetResult();
+                        WriteObject(serviceList, true);
                         break;
                     case ByName:
-                        GetByName();
+                        GetByName(sfManagedServiceCollection);
                         break;
                     case ByResourceId:
                         SetParametersByResourceId(this.ResourceId);
-                        GetByName();
+                        GetByName(sfManagedServiceCollection);
                         break;
                     default:
                         throw new PSArgumentException("Invalid ParameterSetName");
@@ -100,10 +95,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private void GetByName()
+        private void GetByName(ServiceFabricManagedServiceCollection sfManagedServiceCollection)
         {
-            var managedService = this.SfrpMcClient.Services.Get(this.ResourceGroupName, this.ClusterName, this.ApplicationName, this.Name);
-            WriteObject(PSManagedService.GetInstance(managedService), false);
+            var serviceResource = sfManagedServiceCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+            WriteObject(serviceResource.Data, false);
         }
 
         private void SetParametersByResourceId(string resourceId)
@@ -115,11 +110,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.Name = resourceName;
         }
 
-        private async Task<List<ServiceFabricManagedServiceData>> GetSfManagedClusterServices(sfManagedServiceCollection)
+        private async Task<List<ServiceFabricManagedServiceData>> GetSfManagedClusterServices(ServiceFabricManagedServiceCollection sfManagedServiceCollection)
         {
             var services = new List<ServiceFabricManagedServiceData>();
-            return services;
+            await foreach (ServiceFabricManagedServiceResource item in sfManagedServiceCollection.GetAllAsync())
+            {
+                services.Add(item.Data);
+            }
+            return services.Count > 0 ? services : null;
         }
-          
     }
 }

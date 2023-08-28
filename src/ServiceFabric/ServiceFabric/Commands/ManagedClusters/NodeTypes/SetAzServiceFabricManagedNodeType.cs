@@ -19,6 +19,7 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
+using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -141,7 +142,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedNodeTypeData updatedNodeTypeParams = null;
-                var sfManagedNodetypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var sfManagedNodetypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
 
                 switch (ParameterSetName)
                 {
@@ -151,9 +152,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         if (ShouldProcess(target: this.Name, action: string.Format("Reimage node(s) {0}, from node type {1} on cluster {2}", string.Join(", ", this.NodeName), this.Name, this.ClusterName)))
                         {
                             var serviceFabricManagedNodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
-
-                            var nodeTypeContentAction = new NodeTypeActionContent();
-                            nodeTypeContentAction.IsForced = this.ForceReimage.IsPresent;
+                            var nodeTypeContentAction = new NodeTypeActionContent
+                            {
+                                IsForced = this.ForceReimage.IsPresent
+                            };
 
                             foreach (String node in this.NodeName)
                             {
@@ -199,37 +201,42 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private ServiceFabricManagedNodeTypeData GetUpdatedNodeTypeParams(ServiceFabricManagedNodeTypeCollection sfManagedNodetypeCollection)
         {
             var nodeTypeResource = sfManagedNodetypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
-
-            ServiceFabricManagedNodeTypeData currentNodeType = nodeTypeResource.Value.Data;
+            var currentNodeTypeData = nodeTypeResource.Value.Data;
 
             if (this.InstanceCount.HasValue)
             {
-                currentNodeType.VmInstanceCount = this.InstanceCount.Value;
+                
+                if (currentNodeTypeData.Sku != null)
+                { 
+                    currentNodeTypeData.Sku.Capacity = this.InstanceCount.Value;
+                }
+                else
+                {
+                    currentNodeTypeData.VmInstanceCount = this.InstanceCount.Value;
+                }
             }
 
             if (this.ApplicationStartPort.HasValue && this.ApplicationEndPort.HasValue)
             {
-                currentNodeType.ApplicationPorts = new EndpointRangeDescription(this.ApplicationStartPort.Value, this.ApplicationEndPort.Value);
+                currentNodeTypeData.ApplicationPorts = new EndpointRangeDescription(this.ApplicationStartPort.Value, this.ApplicationEndPort.Value);
             }
 
             if (this.EphemeralStartPort.HasValue && this.EphemeralEndPort.HasValue)
             {
-                currentNodeType.EphemeralPorts = new EndpointRangeDescription(this.EphemeralStartPort.Value, this.EphemeralEndPort.Value);
+                currentNodeTypeData.EphemeralPorts = new EndpointRangeDescription(this.EphemeralStartPort.Value, this.EphemeralEndPort.Value);
             }
 
-            if (this.Capacity != null)
+            if (this.IsParameterBound(c => c.Capacity))
             {
-                //currentNodeType.Capacities.Clear();
-                currentNodeType.Capacities.Add(this.Capacity.Keys.ToString(), this.Capacity.Values.ToString());
+                this.AddToList(currentNodeTypeData.Capacities, this.Capacity);
             }
 
-            if (this.PlacementProperty != null)
+            if (this.IsParameterBound(c => c.PlacementProperty))
             {
-                //currentNodeType.PlacementProperties.Clear();
-                currentNodeType.PlacementProperties.Add(this.PlacementProperty.Keys.ToString(), this.PlacementProperty.Values.ToString());
+                this.AddToList(currentNodeTypeData.PlacementProperties, this.PlacementProperty);
             }
 
-            return currentNodeType;
+            return currentNodeTypeData;
         }
 
         private void SetParams()

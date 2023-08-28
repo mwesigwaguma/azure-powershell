@@ -15,10 +15,8 @@
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Management.Automation;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -56,7 +54,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 try
                 {
                     var sfManagedClustercollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    var clusterExists = sfManagedClustercollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+                    var clusterExists = sfManagedClustercollection.ExistsAsync(this.ClusterName).GetAwaiter().GetResult().Value;
 
                     if (!clusterExists)
                     {
@@ -65,9 +63,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     }
                     else
                     {
-                        var cluster = sfManagedClustercollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
-                        var appType = CreateManagedApplicationType(this.Name, cluster.Data.Location, new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
-                        WriteObject(appType.Data);
+                        var clusterResource = sfManagedClustercollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+                        var appTypeResource = CreateManagedApplicationType(this.Name, clusterResource.Data.Location, this.Tag);
+                        WriteObject(appTypeResource.Data);
                     }
                 }
                 catch (Exception ex)

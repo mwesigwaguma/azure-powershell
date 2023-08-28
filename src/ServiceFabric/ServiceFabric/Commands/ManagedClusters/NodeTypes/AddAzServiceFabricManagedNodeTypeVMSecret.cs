@@ -22,8 +22,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -83,9 +81,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret(nodeTypeCollection);
-                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
+                    var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedSecret(sfManageNodeTypeCollection);
+                    var operation = sfManageNodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
                 }
@@ -97,11 +95,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedSecret(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedSecret(ServiceFabricManagedNodeTypeCollection sfManageNodeTypeCollection)
         {
-            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeTypeResource = sfManageNodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
             var currentNodeType = currentNodeTypeResource.Value.Data;
-
             var vault = currentNodeType.VmSecrets.FirstOrDefault(v => string.Equals(v.SourceVaultId.ToString(), this.SourceVaultId, StringComparison.OrdinalIgnoreCase));
             bool newVaultSecretGroup = false;
 

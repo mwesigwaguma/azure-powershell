@@ -15,11 +15,8 @@ using System;
 using System.Management.Automation;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure;
-using Microsoft.Azure.Commands.Common.Strategies;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -70,8 +67,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var serviceFabricManagedCluster = GetManagedClusterResource(this.ResourceGroupName, this.Name);
-                    serviceFabricManagedCluster.DeleteAsync(WaitUntil.Completed).Wait();
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var sfManagedClusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                    sfManagedClusterResource?.DeleteAsync(WaitUntil.Completed).Wait();
 
                     if (this.PassThru)
                     {

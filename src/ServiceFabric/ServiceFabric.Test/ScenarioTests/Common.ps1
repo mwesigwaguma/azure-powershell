@@ -223,7 +223,7 @@ function WaitForManagedClusterReadyState($clusterName, $resourceGroupName, $time
     return $false
 }
 
-function WaitForAllJob($timeoutInSeconds = 1200)
+function WaitForAllJob($timeoutInSeconds = 2100)
 {
     $timeoutTime = (Get-Date).AddSeconds($timeoutInSeconds)
     $allJobs = Get-Job
@@ -243,7 +243,7 @@ function WaitForAllJob($timeoutInSeconds = 1200)
             return $false
 		}
 
-        Start-TestSleep -Seconds 15
+        Start-TestSleep -Seconds 30
     } while ((Get-Date) -lt $timeoutTime)
 
     Write-Error "WaitForJob timed out"
@@ -382,12 +382,12 @@ function Get-ManagedAppTypeV2Name
 
 function Get-ManagedAppPackageV1
 {
-    return "https://sfmconeboxst.blob.core.windows.net/managed-application-deployment/Voting.sfpkg"
+    return "https://sfmconeboxsa.blob.core.windows.net/winfab-rp-feature-sfmc/Voting.sfpkg?sp=r&st=2023-08-25T15:45:49Z&se=2023-09-09T23:45:49Z&spr=https&sv=2022-11-02&sr=b&sig=R7KSYs0xFan1IlOW5vXA6w5OwirmKIQvi0RmyBch6FQ%3D"
 }
 
 function Get-ManagedAppPackageV2
 {
-    return "https://sfmconeboxst.blob.core.windows.net/managed-application-deployment/Voting.2.0.0.sfpkg"
+    return "https://sfmconeboxsa.blob.core.windows.net/winfab-rp-feature-sfmc/Voting.2.0.0.sfpkg?sp=r&st=2023-08-25T15:46:47Z&se=2023-09-09T23:46:47Z&spr=https&sv=2022-11-02&sr=b&sig=KheZx041xMF%2BmnL48tq%2FiGx%2BvuV0upfuP39nA3Em4uA%3D"
 }
 
 function Get-ManagedStatelessServiceTypeName

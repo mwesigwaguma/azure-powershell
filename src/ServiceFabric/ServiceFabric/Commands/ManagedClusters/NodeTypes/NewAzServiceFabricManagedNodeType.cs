@@ -16,12 +16,12 @@ using System.Collections;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Azure.Core;
 using EndpointRangeDescription = Azure.ResourceManager.ServiceFabricManagedClusters.Models.EndpointRangeDescription;
 using Azure;
+using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -88,7 +88,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         public string VmImageOffer { get; set; } = "WindowsServer";
 
         [Parameter(Mandatory = false, HelpMessage = "The SKU of the Azure Virtual Machines Marketplace image. Default: 2019-Datacenter.")]
-        public string VmImageSku { get; set; } = "2019-Datacenter";
+        public string VmImageSku { get; set; } = "2022-Datacenter";
 
         [Parameter(Mandatory = false, HelpMessage = "The version of the Azure Virtual Machines Marketplace image. Default: latest.")]
         public string VmImageVersion { get; set; } = "latest";
@@ -119,8 +119,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var collection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                    var nodeTypeExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+                    var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var nodeTypeExists = sfManageNodeTypeCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
 
                     if (nodeTypeExists)
                     {
@@ -130,7 +130,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     else
                     {
                         var newNodeTypeParams = this.GetNewNodeTypeParameters();
-                        var operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newNodeTypeParams).GetAwaiter().GetResult();
+                        var operation = sfManageNodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newNodeTypeParams).GetAwaiter().GetResult();
                         var nodeTypeResource = operation.Value;
                         WriteObject(nodeTypeResource.Data, false);
                     }
@@ -145,18 +145,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private ServiceFabricManagedNodeTypeData GetNewNodeTypeParameters()
         {
-            var newNodeType = new ServiceFabricManagedNodeTypeData();
-
-            newNodeType.IsPrimary = this.Primary.IsPresent;
-            newNodeType.VmInstanceCount = this.InstanceCount;
-            newNodeType.DataDiskSizeInGB = this.DiskSize;
-            newNodeType.DataDiskType = this.DiskType;
-            newNodeType.VmSize = this.VmSize;
-            newNodeType.VmImagePublisher = this.VmImagePublisher;
-            newNodeType.VmImageOffer = this.VmImageOffer;
-            newNodeType.VmImageSku = this.VmImageSku;
-            newNodeType.VmImageVersion = this.VmImageVersion;
-            newNodeType.IsStateless = this.IsStateless;
+            var newNodeType = new ServiceFabricManagedNodeTypeData
+            {
+                IsPrimary = this.Primary.IsPresent,
+                VmInstanceCount = this.InstanceCount,
+                DataDiskSizeInGB = this.DiskSize,
+                DataDiskType = this.DiskType,
+                VmSize = this.VmSize,
+                VmImagePublisher = this.VmImagePublisher,
+                VmImageOffer = this.VmImageOffer,
+                VmImageSku = this.VmImageSku,
+                VmImageVersion = this.VmImageVersion,
+                IsStateless = this.IsStateless
+            };
 
             if (this.ApplicationStartPort.HasValue && this.ApplicationEndPort.HasValue)
             {
@@ -168,14 +169,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 newNodeType.EphemeralPorts = new EndpointRangeDescription(this.EphemeralStartPort.Value, this.EphemeralEndPort.Value);
             }
 
-            if (this.Capacity != null)
+            if (this.IsParameterBound(c => c.Capacity))
             {
-                newNodeType.Capacities.Add(this.Capacity.Keys.ToString(), this.Capacity.Values.ToString());
+                this.AddToList(newNodeType.Capacities, this.Capacity);
             }
 
-            if (this.PlacementProperty != null)
+            if (this.IsParameterBound(c => c.PlacementProperty))
             {
-                newNodeType.PlacementProperties.Add(this.PlacementProperty.Keys.ToString(), this.PlacementProperty.Values.ToString());
+                this.AddToList(newNodeType.PlacementProperties, this.PlacementProperty);
             }
 
             if (this.VmUserAssignedIdentity != null && this.VmUserAssignedIdentity.Length > 0)

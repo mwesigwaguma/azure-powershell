@@ -19,7 +19,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -57,7 +56,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ParameterSetName = ClientCertByCnByObj,
             HelpMessage = "Managed cluster resource")]
         [ValidateNotNull]
-        public PSManagedCluster InputObject { get; set; }
+        public ServiceFabricManagedClusterData InputObject { get; set; }
 
         #endregion
 
@@ -104,13 +103,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithAddedClientCert(collection);
-
-                    ArmOperation<ServiceFabricManagedClusterResource> lro = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = lro.Value;
-
-                    WriteObject(result.Data, false);
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var updatedClusterData = this.GetClusterWithAddedClientCert(sfManagedClusterCollection);
+                    var operation = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterData).GetAwaiter().GetResult();
+                    var sfManagedClusterResource = operation.Value;
+                    WriteObject(sfManagedClusterResource.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -120,11 +117,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert(ServiceFabricManagedClusterCollection collection)
+        private ServiceFabricManagedClusterData GetClusterWithAddedClientCert(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
-            ServiceFabricManagedClusterData currentCluster = result.Data;
-            
+            var sfManagedClusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+            var currentClusterData = sfManagedClusterResource.Data;
             var newCert = new ManagedClusterClientCertificate(isAdmin: this.Admin.IsPresent);
 
             switch(ParameterSetName)
@@ -138,7 +134,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     newCert.CommonName = this.CommonName;
                     foreach (string isuerThumbprint in this.IssuerThumbprint)
                     {
-                        currentCluster.Clients.Add(new ManagedClusterClientCertificate(this.Admin.IsPresent)
+                        currentClusterData.Clients.Add(new ManagedClusterClientCertificate(this.Admin.IsPresent)
                         {
                             CommonName = this.CommonName,
                             IssuerThumbprint = this.IssuerThumbprint != null ? BinaryData.FromObjectAsJson(isuerThumbprint) : null,
@@ -149,9 +145,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     throw new ArgumentException("Invalid parameter set", ParameterSetName);
             }
 
-            currentCluster.Clients.Add(newCert);
+            currentClusterData.Clients.Add(newCert);
 
-            return currentCluster;
+            return currentClusterData;
         }
 
         private void SetParams()

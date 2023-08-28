@@ -13,6 +13,7 @@
 // ----------------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
 using System.Management.Automation;
 using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
@@ -96,13 +97,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			{
 				try
 				{
-                    ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithNewNetworkSecurityRule(sfManagedClusterCollection);
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var updatedClusterData = this.GetClusterWithNewNetworkSecurityRule(sfManagedClusterCollection);
                 
-                    var lro = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = lro.Value;
+                    var operation = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.ClusterName, updatedClusterData).GetAwaiter().GetResult();
+                    var sfManagedClusterResource = operation.Value;
 
-                    WriteObject(new PSManagedCluster(result.Data), false);
+                    WriteObject(sfManagedClusterResource.Data, false);
 				}
 				catch (Exception ex)
 				{
@@ -114,10 +115,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
 		private ServiceFabricManagedClusterData GetClusterWithNewNetworkSecurityRule(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
 		{
-            ServiceFabricManagedClusterResource result = sfManagedClusterCollection.GetAsync(this.ClusterName).GetAwaiter().GetResult();
-            ServiceFabricManagedClusterData currentCluster = result.Data;
+            var sfManagedClusterResource = sfManagedClusterCollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+            var currentClusterData = sfManagedClusterResource.Data;
 
-            ServiceFabricManagedNetworkSecurityRule newNetworkSecurityRule = new ServiceFabricManagedNetworkSecurityRule(
+            var newNetworkSecurityRule = new ServiceFabricManagedNetworkSecurityRule(
                 name : this.Name,
                 protocol: this.Protocol == NetworkSecurityProtocol.any ? AnyTrueValue : this.Protocol.ToString(),
                 access: this.Access.ToString(),
@@ -126,15 +127,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                  
                 );
 
-			newNetworkSecurityRule.DestinationAddressPrefixes.Add(string.Join(" ", this.DestinationAddressPrefix));
-			newNetworkSecurityRule.DestinationPortRanges.Add(string.Join(" ", this.DestinationPortRange));
-			newNetworkSecurityRule.SourceAddressPrefixes.Add(string.Join(" ", this.SourceAddressPrefix));
-			newNetworkSecurityRule.SourcePortRanges.Add(string.Join(" ", this.SourcePortRange));
+			this.AddList(newNetworkSecurityRule.DestinationAddressPrefixes, this.DestinationAddressPrefix);
+			this.AddList(newNetworkSecurityRule.DestinationPortRanges, this.DestinationPortRange);
+			this.AddList(newNetworkSecurityRule.SourceAddressPrefixes, this.SourceAddressPrefix);
+			this.AddList(newNetworkSecurityRule.SourcePortRanges, this.SourcePortRange);
 
+			currentClusterData.NetworkSecurityRules.Add(newNetworkSecurityRule);
 
-			currentCluster.NetworkSecurityRules.Add(newNetworkSecurityRule);
-
-            return currentCluster;
+            return currentClusterData;
 		}
 
 		private void SetParams()
@@ -157,6 +157,14 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 			this.GetParametersByResourceId(resourceId, Constants.ManagedClusterProvider, out string resourceGroup, out string resourceName);
 			this.ResourceGroupName = resourceGroup;
 			this.ClusterName = resourceName;
+		}
+
+		private void AddList(IList<string> currentProperty, string[] listToAdd) 
+		{
+			foreach (string element in listToAdd)
+			{ 
+				currentProperty.Add(element);
+			}
 		}
 	}
 }

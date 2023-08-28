@@ -12,13 +12,12 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 using System.Management.Automation;
 using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -52,7 +51,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceGroup, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByInputObject, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ValueFromPipelineByPropertyName = true, ParameterSetName = ByResourceId, HelpMessage = "Specify the tags as key/value pairs.")]
-        public KeyValuePair<string, string> Tag { get; set; }
+        public Hashtable Tag { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByResourceId, ValueFromPipelineByPropertyName = true,
             HelpMessage = "Arm ResourceId of the managed application type.")]
@@ -76,16 +75,16 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 this.SetParams();
                 ServiceFabricManagedApplicationTypeData updatedAppTypeParams = null;
-                var sfManagedApplicationTypecollection = GetApplicationTypeCollection();
+                var sfManagedAppTypeCollection = this.GetSfManagedApplicationTypeCollection();
 
                 switch (ParameterSetName)
                 {
                     case ByResourceGroup:
                     case ByResourceId:
-                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedApplicationTypecollection);
+                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedAppTypeCollection);
                         break;
                     case ByInputObject:
-                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedApplicationTypecollection, this.InputObject);
+                        updatedAppTypeParams = this.GetUpdatedAppTypeParams(sfManagedAppTypeCollection, this.InputObject);
                         break;
                     default:
                         throw new ArgumentException("Invalid parameter set", ParameterSetName);
@@ -93,7 +92,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
                 if (updatedAppTypeParams != null && ShouldProcess(target: this.Name, action: $"Update managed app type name {this.Name}, cluster: {this.ClusterName} in resource group {this.ResourceGroupName}"))
                 {
-                    var operation = sfManagedApplicationTypecollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams).GetAwaiter().GetResult();
+                    var operation = sfManagedAppTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedAppTypeParams).GetAwaiter().GetResult();
                     var managedAppType = operation.Value;
 
                     WriteObject(managedAppType.Data);
@@ -106,13 +105,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeCollection sfManagedApplicationTypecollection, ServiceFabricManagedApplicationTypeData inputObject = null)
+        private ServiceFabricManagedApplicationTypeData GetUpdatedAppTypeParams(ServiceFabricManagedApplicationTypeCollection sfManagedAppTypeCollection, ServiceFabricManagedApplicationTypeData inputObject = null)
         {
-            ServiceFabricManagedApplicationTypeData updatedAppType = null;
+            ServiceFabricManagedApplicationTypeData updatedAppTypeData = null;
 
             if (inputObject == null)
             {
-                var exists = sfManagedApplicationTypecollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+                var exists = sfManagedAppTypeCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
                 if (!exists)
                 {
                     WriteError(new ErrorRecord(new InvalidOperationException($"Managed application type version '{this.Name}' does not exist."),
@@ -120,20 +119,20 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     return null;
                 }
 
-                var currentAppType = sfManagedApplicationTypecollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
-                updatedAppType = currentAppType.Data;
+                var currentAppType = sfManagedAppTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                updatedAppTypeData = currentAppType.Data;
             }
             else
             {
-                updatedAppType = inputObject;
+                updatedAppTypeData = inputObject;
             }
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                updatedAppType.Tags.Add(this.Tag);
+                this.AddToList(updatedAppTypeData.Tags, this.Tag);
             }
 
-            return updatedAppType;
+            return updatedAppTypeData;
         }
          
         private void SetParams()

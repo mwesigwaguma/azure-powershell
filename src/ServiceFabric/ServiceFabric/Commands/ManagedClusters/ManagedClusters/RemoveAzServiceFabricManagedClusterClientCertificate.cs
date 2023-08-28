@@ -11,13 +11,11 @@
 // limitations under the License.
 // ----------------------------------------------------------------------------------
 
-using Azure.ResourceManager;
 using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 using System;
 using System.Linq;
 using System.Management.Automation;
@@ -93,11 +91,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-                    ServiceFabricManagedClusterData updatedCluster = this.GetClusterWithRemovedClientCert(collection);
-
-                    ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = operation.Value;
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var updatedCluster = this.GetClusterWithRemovedClientCert(sfManagedClusterCollection);
+                    var operation = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedCluster).GetAwaiter().GetResult();
+                    var result = operation.Value;
 
                     if (this.PassThru)
                     {
@@ -105,7 +102,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     }
                     else
                     {
-                        WriteObject(new PSManagedCluster(updatedCluster), false);
+                        WriteObject(result.Data, false);
                     }
                 }
                 catch (Exception ex)
@@ -116,9 +113,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert(ServiceFabricManagedClusterCollection collection)
+        private ServiceFabricManagedClusterData GetClusterWithRemovedClientCert(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            var currentCluster = collection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentCluster = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult();
             var clusterResource = currentCluster.Value;
 
             if (clusterResource?.Data.Clients == null || clusterResource?.Data.Clients.Count() == 0)
@@ -184,7 +181,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private ManagedClusterClientCertificate GetCertToDelete(ServiceFabricManagedClusterData data) {
             var certList =  data.Clients.Where(cert =>
                         string.Equals(cert.Thumbprint.ToString(), this.Thumbprint, StringComparison.OrdinalIgnoreCase));
-
             return certList.FirstOrDefault();
         }
     }

@@ -13,8 +13,6 @@
 
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
 using System.Security;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
@@ -26,7 +24,7 @@ using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Azure.ResourceManager.Resources;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using System.Threading.Tasks;
-
+using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -155,23 +153,21 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    SubscriptionResource subResource = this.ArmClient.GetDefaultSubscriptionAsync().GetAwaiter().GetResult();
-                    ResourceGroupCollection resGroupCollection = subResource.GetResourceGroups();
-
+                    var subResource = this.ArmClient.GetDefaultSubscriptionAsync().GetAwaiter().GetResult();
+                    var resGroupCollection = subResource.GetResourceGroups();
                     var resGroupExists = resGroupCollection.ExistsAsync(this.ResourceGroupName).GetAwaiter().GetResult().Value;
                     ResourceGroupResource resourceGroupResource = null;
 
                     if (!resGroupExists)
                     {
-                        resourceGroupResource = createResourceGroup(resGroupCollection).Result;
+                        resourceGroupResource = CreateResourceGroup(resGroupCollection).Result;
                     }
                     else
                     {
                         resourceGroupResource = resGroupCollection.GetAsync(this.ResourceGroupName).GetAwaiter().GetResult();
                     }
 
-                    var result = this.createCluster(resourceGroupResource).Result;
-
+                    var result = this.CreateCluster(resourceGroupResource).Result;
                     WriteObject(result.Data, false);
                 }
                 catch (Exception ex)
@@ -182,9 +178,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private async Task<ResourceGroupResource> createResourceGroup(ResourceGroupCollection resGroupCollection)
+        private async Task<ResourceGroupResource> CreateResourceGroup(ResourceGroupCollection resGroupCollection)
         {
-
             ArmOperation<ResourceGroupResource> operation = await resGroupCollection.CreateOrUpdateAsync(
                 WaitUntil.Completed,
                 this.ResourceGroupName,
@@ -193,20 +188,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             return operation.Value;
         }
 
-        private async Task<ServiceFabricManagedClusterResource> createCluster(ResourceGroupResource resourceGroupResource)
+        private async Task<ServiceFabricManagedClusterResource> CreateCluster(ResourceGroupResource resourceGroupResource)
         {
-            ServiceFabricManagedClusterCollection collection = resourceGroupResource.GetServiceFabricManagedClusters();
-            var clsuterExists = collection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
-            
+            var sfManagedClusterCollection = resourceGroupResource.GetServiceFabricManagedClusters();
+            var clsuterExists = sfManagedClusterCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
             if (clsuterExists)
             {
                 WriteError(new ErrorRecord(new InvalidOperationException(string.Format("Cluster '{0}' already exists.", this.Name)),
                     "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
             }
 
-            ServiceFabricManagedClusterData newClusterParams = this.GetNewManagedClusterParameters();
-            var operation = await collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
-            //PollLongRunningOperation(operation);
+            var newClusterParams = this.GetNewManagedClusterParameters();
+            var operation = await sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, newClusterParams);
             return operation.Value;
         }
 
@@ -259,11 +252,11 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 }
             }
 
-            if (this.Tag != null)
+            if (this.IsParameterBound(c => c.Tag))
             {
-                newCluster.Tags.Add(new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()));
+                this.AddToList(newCluster.Tags, this.Tag);
             }
-           
+
             if (this.UpgradeMode == ManagedClusterUpgradeMode.Manual)
             {
                 newCluster.ClusterCodeVersion = this.CodeVersion;

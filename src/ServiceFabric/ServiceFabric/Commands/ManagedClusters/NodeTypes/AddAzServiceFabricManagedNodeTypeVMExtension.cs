@@ -18,7 +18,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
@@ -97,9 +96,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension(nodeTypeCollection);
-                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.NodeTypeName, updatedNodeTypeParams).GetAwaiter().GetResult();
+                    var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension(sfManageNodeTypeCollection);
+                    var operation = sfManageNodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.NodeTypeName, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     WriteObject(operation.Value.Data, false);
                 }
@@ -111,11 +110,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithAddedExtension(ServiceFabricManagedNodeTypeCollection sfManageNodeTypeCollection)
         {
-            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.NodeTypeName).GetAwaiter().GetResult();
-            var currentNodeType = currentNodeTypeResource.Value.Data;
-
+            var currentNodeTypeResource = sfManageNodeTypeCollection.GetAsync(this.NodeTypeName).GetAwaiter().GetResult();
+            var currentNodeTypeData = currentNodeTypeResource.Value.Data;
             var extensionToAdd = new NodeTypeVmssExtension(this.Name, this.Publisher, this.Type, this.TypeHandlerVersion)
             {
                 ForceUpdateTag = this.ForceUpdateTag,
@@ -132,8 +130,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                 }
             }
             
-            currentNodeType.VmExtensions.Add(extensionToAdd);
-            return currentNodeType;
+            currentNodeTypeData.VmExtensions.Add(extensionToAdd);
+            return currentNodeTypeData;
         }
 
         private void SetParams()

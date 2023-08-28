@@ -82,6 +82,7 @@ function Test-ManagedAppTypeVersion
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
+	$appTypeName = "VotingType"
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
@@ -127,7 +128,7 @@ function Test-ManagedAppTypeVersion
 	$removeResponse = Remove-AzServiceFabricManagedClusterApplicationType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name $appTypeName -Force -PassThru -Verbose
 	Assert-True { $removeResponse }
 
-	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterApplicationTypeVersion -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name $appTypeName -Version $v1 } "NotFound"
+	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterApplicationTypeVersion -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name $appTypeName -Version $v1 } "Not Found"
 }
 
 function Test-ManagedApp
@@ -138,6 +139,7 @@ function Test-ManagedApp
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
+	$appTypeName = "VotingType"
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
@@ -155,6 +157,7 @@ function Test-ManagedApp
 
 	$appName = getAssetName "testApp"
 	$serviceName = getAssetName "testStatelessService"
+	$serviceName = "StatelessService-sfmcps-test-4"
 
 	$apps = Get-AzServiceFabricManagedClusterApplication -ResourceGroupName $resourceGroupName -ClusterName $clusterName
 	Assert-Null $apps
@@ -167,7 +170,7 @@ function Test-ManagedApp
 	Assert-AreEqual $app.Id $appFromGet.Id
 
 	$service = New-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Stateless -InstanceCount -1 -ApplicationName $appName -Name $serviceName -Type $statelessServiceTypeName -PartitionSchemeSingleton -Verbose
-	Assert-AreEqual "Succeeded" $service.ProvisioningState
+	Assert-AreEqual "Succeeded" $service.Properties.ProvisioningState
 
 	$serviceFromGet = Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $serviceName
 	Assert-NotNull $serviceFromGet
@@ -208,6 +211,7 @@ function Test-ManagedService
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
+	$appTypeName = "VotingType"
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
@@ -226,7 +230,7 @@ function Test-ManagedService
 	$appName = getAssetName "testApp"
 	$statelessServiceName = getAssetName "testStatelessService"
 	$statefulServiceName = getAssetName "testStatefulService"
-
+	
 	$app = New-AzServiceFabricManagedClusterApplication -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationTypeName $appTypeName -ApplicationTypeVersion $v1 -Name $appName -PackageUrl $packageV1 -Verbose
 	Assert-AreEqual "Succeeded" $app.ProvisioningState
 
@@ -236,7 +240,7 @@ function Test-ManagedService
 	$statefulService = New-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Stateful -TargetReplicaSetSize 3 `
 		-MinReplicaSetSize 2 -HasPersistedState -ApplicationName $appName -Name $statefulServiceName -Type $statefulServiceTypeName -PartitionSchemeUniformInt64 `
 		-PartitionCount 1 -LowKey 0 -HighKey 25 -Verbose
-	Assert-AreEqual "Succeeded" $statefulService.ProvisioningState
+	Assert-AreEqual "Succeeded" $statefulService.Properties.ProvisioningState
 
 	$statefulServiceFromGet = Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statefulServiceName
 	Assert-NotNull $statefulServiceFromGet
@@ -244,7 +248,7 @@ function Test-ManagedService
 
 	$statelessService = New-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Stateless -InstanceCount -1 `
 		-ApplicationName $appName -Name $statelessServiceName -Type $statelessServiceTypeName -PartitionSchemeSingleton -Verbose
-	Assert-AreEqual "Succeeded" $statelessService.ProvisioningState
+	Assert-AreEqual "Succeeded" $statelessService.Properties.ProvisioningState
 
 	$statelessServiceFromGet = Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statelessServiceName
 	Assert-NotNull $statelessServiceFromGet
@@ -257,15 +261,16 @@ function Test-ManagedService
 
 	$statefulService = $statefulServiceFromGet | Set-AzServiceFabricManagedClusterService -Stateful -ReplicaRestartWaitDuration $replicaRestartWaitDuration -QuorumLossWaitDuration $quorumLossWaitDuration `
 		-StandByReplicaKeepDuration $standByReplicaKeepDuration -ServicePlacementTimeLimit $servicePlacementTimeLimit -Verbose
-	Assert-AreEqual "Succeeded" $statefulService.ProvisioningState
-	Assert-AreEqual $replicaRestartWaitDuration $statefulService.ReplicaRestartWaitDuration
-	Assert-AreEqual $quorumLossWaitDuration $statefulService.QuorumLossWaitDuration
-	Assert-AreEqual $standByReplicaKeepDuration $statefulService.StandByReplicaKeepDuration
-	Assert-AreEqual $servicePlacementTimeLimit $statefulService.ServicePlacementTimeLimit
+	$statefulService = Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statefulServiceName
+	Assert-AreEqual "Succeeded" $statefulService.Properties.ProvisioningState
+	Assert-AreEqual $replicaRestartWaitDuration $statefulService.Properties.ReplicaRestartWaitDuration
+	Assert-AreEqual $quorumLossWaitDuration $statefulService.Properties.QuorumLossWaitDuration
+	Assert-AreEqual $standByReplicaKeepDuration $statefulService.Properties.StandByReplicaKeepDuration
+	Assert-AreEqual $servicePlacementTimeLimit $statefulService.Properties.ServicePlacementTimeLimit
 
 	# Test noop
 	$statefulServiceNoop = $statefulService | Set-AzServiceFabricManagedClusterService -Stateful -Verbose
-	Assert-AreEqual "Succeeded" $statefulServiceNoop.ProvisioningState
+	Assert-AreEqual "Succeeded" $statefulServiceNoop.Properties.ProvisioningState
 	Assert-AreEqualObjectProperties $statefulService $statefulServiceNoop
 
 	$minInstancePercentage = 20
@@ -273,13 +278,13 @@ function Test-ManagedService
 
 	$statelessService = $statelessServiceFromGet | Set-AzServiceFabricManagedClusterService -Stateless -MinInstancePercentage $minInstancePercentage `
 		-MinInstanceCount $minInstanceCount -Verbose
-	Assert-AreEqual "Succeeded" $statelessService.ProvisioningState
-	Assert-AreEqual $minInstancePercentage $statelessService.MinInstancePercentage
-	Assert-AreEqual $minInstanceCount $statelessService.MinInstanceCount
+	Assert-AreEqual "Succeeded" $statelessService.Properties.ProvisioningState
+	Assert-AreEqual $minInstancePercentage $statelessService.Properties.MinInstancePercentage
+	Assert-AreEqual $minInstanceCount $statelessService.Properties.MinInstanceCount
 
 	# Test noop
 	$statelessServiceNoop = $statelessService | Set-AzServiceFabricManagedClusterService -Stateless -Verbose
-	Assert-AreEqual "Succeeded" $statelessServiceNoop.ProvisioningState
+	Assert-AreEqual "Succeeded" $statelessServiceNoop.Properties.ProvisioningState
 	Assert-AreEqualObjectProperties $statelessService $statelessServiceNoop 
 
 	$removeStatefulServiceResponse = Remove-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statefulServiceName -Force -PassThru -Verbose
@@ -294,6 +299,6 @@ function Test-ManagedService
 	$removeAppTypeResponse = Remove-AzServiceFabricManagedClusterApplicationType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name $appTypeName -Force -PassThru -Verbose
 	Assert-True { $removeAppTypeResponse }
 
-	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statefulServiceName } "NotFound"
-	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statelessServiceName } "NotFound"
+	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statefulServiceName } "Not Found"
+	Assert-ThrowsContains { Get-AzServiceFabricManagedClusterService -ResourceGroupName $resourceGroupName -ClusterName $clusterName -ApplicationName $appName -Name $statelessServiceName } "Not Found"
 }

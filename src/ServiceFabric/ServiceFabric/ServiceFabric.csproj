@@ -49,6 +49,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Commands\ManagedClusters\Applications\GetAzServiceFabricManagedClusterApplication.cs" />
+    <Compile Include="Commands\ManagedClusters\Applications\NewAzServiceFabricManagedClusterApplication.cs" />
+    <Compile Include="Commands\ManagedClusters\Applications\RemoveAzServiceFabricManagedClusterApplication.cs" />
+    <Compile Include="Commands\ManagedClusters\Applications\SetAzServiceFabricManagedClusterApplication.cs" />
+    <Compile Include="Commands\ManagedClusters\ApplicationTypeVersions\GetAzServiceFabricManagedClusterApplicationTypeVersion.cs" />
+    <Compile Include="Commands\ManagedClusters\ApplicationTypeVersions\NewAzServiceFabricManagedClusterApplicationTypeVersion.cs" />
+    <Compile Include="Commands\ManagedClusters\ApplicationTypeVersions\RemoveAzServiceFabricManagedClusterApplicationTypeVersion.cs" />
+    <Compile Include="Commands\ManagedClusters\ApplicationTypeVersions\SetAzServiceFabricManagedClusterApplicationTypeVersion.cs" />
+    <Compile Include="Commands\ManagedClusters\Services\GetAzServiceFabricManagedClusterService.cs" />
+    <Compile Include="Commands\ManagedClusters\Services\NewAzServiceFabricManagedClusterService.cs" />
+    <Compile Include="Commands\ManagedClusters\Services\RemoveAzServiceFabricManagedClusterService.cs" />
+    <Compile Include="Commands\ManagedClusters\Services\SetAzServiceFabricManagedClusterService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.9.0" />
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="3.0.1" />
     <PackageReference Include="Microsoft.Azure.KeyVault.WebKey" Version="3.0.1" />
@@ -79,10 +94,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Commands\ManagedClusters\Applications\" />
   </ItemGroup>
 
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory).., build.proj))\src\Az.Post.props" />

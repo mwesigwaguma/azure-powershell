@@ -14,18 +14,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Management.Automation;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using System.Threading.Tasks;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplication", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(PSManagedApplication))]
+    [Cmdlet(VerbsCommon.Get, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplication", DefaultParameterSetName = ByResourceGroupAndCluster), OutputType(typeof(ServiceFabricManagedApplicationData))]
     public class GetAzServiceFabricManagedClusterApplication : ManagedApplicationCmdletBase
     {
         private const string ByResourceGroupAndCluster = "ByResourceGroupAndCluster";
@@ -66,18 +63,19 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
+                var sfManagedApplicationCollection = this.GetSfManagedApplicationCollection();
                 switch (ParameterSetName)
                 {
                     case ByResourceGroupAndCluster:
-                        var managedAppTypeList = GetApplications().GetAwaiter().GetResult();
-                        WriteObject(managedAppTypeList, true);
+                        var managedAppList = this.GetApplications(sfManagedApplicationCollection).GetAwaiter().GetResult();
+                        WriteObject(managedAppList, true);
                         break;
                     case ByName:
-                        GetByName();
+                        GetByName(sfManagedApplicationCollection);
                         break;
                     case ByResourceId:
                         SetParametersByResourceId(this.ResourceId);
-                        GetByName();
+                        GetByName(sfManagedApplicationCollection);
                         break;
                     default:
                         throw new PSArgumentException("Invalid ParameterSetName");
@@ -90,11 +88,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private void GetByName()
+        private void GetByName(ServiceFabricManagedApplicationCollection sfManagedApplicationCollection)
         {
-            var collection = GetManagedApplicationCollection();
-            ServiceFabricManagedApplicationResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
-
+            var result = sfManagedApplicationCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
             WriteObject(result.Data, false);
         }
 
@@ -106,26 +102,15 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             this.ClusterName = parentResourceName;
         }
 
-        private async Task<List<ServiceFabricManagedApplicationData>> GetApplications()
+        private async Task<List<ServiceFabricManagedApplicationData>> GetApplications(ServiceFabricManagedApplicationCollection sfManagedApplicationCollection)
         {
-            var collection = GetManagedApplicationCollection();
-            List<ServiceFabricManagedApplicationData> applications = new List<ServiceFabricManagedApplicationData>();
-
-            await foreach (ServiceFabricManagedApplicationResource item in collection.GetAllAsync())
+            var applicationList = new List<ServiceFabricManagedApplicationData>();
+            await foreach (ServiceFabricManagedApplicationResource item in sfManagedApplicationCollection.GetAllAsync())
             {
-                applications.Add(item.Data);
+                applicationList.Add(item.Data);
             }
 
-            return applications;
-        }
-
-        private ServiceFabricManagedApplicationCollection GetManagedApplicationCollection()
-        {
-            ResourceIdentifier serviceFabricManagedClusterResourceId = new ResourceIdentifier(this.ResourceId);
-            ServiceFabricManagedClusterResource serviceFabricManagedCluster = this.ArmClient.GetServiceFabricManagedClusterResource(serviceFabricManagedClusterResourceId);
-            ServiceFabricManagedApplicationCollection collection = serviceFabricManagedCluster.GetServiceFabricManagedApplication();
-
-            return collection;
+            return applicationList.Count > 0 ? applicationList : null;
         }
     }
 }

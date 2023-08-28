@@ -18,8 +18,6 @@ using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Azure;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Azure.Core;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -57,7 +55,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true,
             HelpMessage = "The managed application resource.")]
-        public PSManagedApplication InputObject { get; set; }
+        public ServiceFabricManagedApplicationData InputObject { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = ByResourceGroup)]
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject)]
@@ -78,8 +76,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             switch (ParameterSetName)
             {
                 case ByInputObject:
-                    //this.ResourceId = InputObject.Id;
-                    //SetParametersByResourceId(this.ResourceId);
+                    this.ResourceId = InputObject.Id.ToString();
+                    SetParametersByResourceId(this.ResourceId);
                     break;
                 case ByResourceId:
                     SetParametersByResourceId(this.ResourceId);
@@ -102,16 +100,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            ResourceIdentifier serviceFabricManagedApplicationResourceId = ServiceFabricManagedApplicationResource.CreateResourceIdentifier(
-                                this.DefaultContext.Subscription.Id,
-                                this.ResourceGroupName,
-                                this.ClusterName,
-                                this.Name);
-
-                            ServiceFabricManagedApplicationResource application = SafeGetResource(() =>
-                                this.ArmClient.GetServiceFabricManagedApplicationResource(this.ArmClient, serviceFabricManagedApplicationResourceId));
-
-                            application?.DeleteAsync(WaitUntil.Completed).Wait();
+                            var sfManagedApplicationCollection = this.GetSfManagedApplicationCollection();
+                            var applicationResource = sfManagedApplicationCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                            applicationResource?.DeleteAsync(WaitUntil.Completed).Wait();
 
                             if (PassThru)
                             {

@@ -18,7 +18,6 @@ using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -75,10 +74,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                    var updatedNodeTypeParams = this.GetNodeTypeWithRemovedExtension(nodeTypeCollection);
+                    var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                    var updatedNodeTypeParams = this.GetNodeTypeWithRemovedExtension(sfManageNodeTypeCollection);
                     
-                    var operation = nodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
+                    var operation = sfManageNodeTypeCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedNodeTypeParams).GetAwaiter().GetResult();
 
                     if (this.PassThru)
                     {
@@ -97,25 +96,24 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedNodeTypeData GetNodeTypeWithRemovedExtension(ServiceFabricManagedNodeTypeCollection nodeTypeCollection)
+        private ServiceFabricManagedNodeTypeData GetNodeTypeWithRemovedExtension(ServiceFabricManagedNodeTypeCollection sfManageNodeTypeCollection)
         {
-            var currentNodeTypeResource = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
-            var currentNodeType = currentNodeTypeResource.Value.Data;
-
-            if (currentNodeType?.VmExtensions != null)
+            var currentNodeTypeResource = sfManageNodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+            var currentNodeTypeData = currentNodeTypeResource.Value.Data;
+            if (currentNodeTypeData?.VmExtensions != null)
             {
-                var originalLength = currentNodeType.VmExtensions.Count();
-                var extensionToRemove = currentNodeType.VmExtensions.Where(ext => string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase));
+                var originalLength = currentNodeTypeData.VmExtensions.Count();
+                var extensionToRemove = currentNodeTypeData.VmExtensions.Where(ext => string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase));
 
-                currentNodeType.VmExtensions.Remove(extensionToRemove.FirstOrDefault());
+                currentNodeTypeData.VmExtensions.Remove(extensionToRemove.FirstOrDefault());
                 
-                if (originalLength == currentNodeType.VmExtensions.Count())
+                if (originalLength == currentNodeTypeData.VmExtensions.Count())
                 {
                     throw new ArgumentException(string.Format("extension with name {0} not found", this.Name));
                 }
             }
 
-            return currentNodeType;
+            return currentNodeTypeData;
         }
 
         private void SetParams()

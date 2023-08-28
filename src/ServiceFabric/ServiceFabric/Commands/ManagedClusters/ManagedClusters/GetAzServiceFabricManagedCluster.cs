@@ -51,33 +51,22 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         {
             try
             {
-                ServiceFabricManagedClusterCollection sfManagedClusterCollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
-
+                var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
                 switch (ParameterSetName)
                 {
                     case ByName:
-                        ServiceFabricManagedClusterResource clusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult();
-                        
+                        var clusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
                         WriteObject(clusterResource?.Data, false);
                         break;
+
                     case ByResourceGroup:
-                        /*var clusterList = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.ManagedClusters.ListByResourceGroup(this.ResourceGroupName),
-                            this.SfrpMcClient.ManagedClusters.ListByResourceGroupNext);*/
-
-                       /* var clusterList = GetClusterList();
+                        var clusterList = this.GetClusterList(sfManagedClusterCollection).GetAwaiter().GetResult();
                         WriteObject(clusterList, true);
+                        break;
 
-                        break;*/
                     case BySubscription:
-                        /*var cluster2List = this.ReturnListByPageResponse(
-                            this.SfrpMcClient.ManagedClusters.ListBySubscription(),
-                            this.SfrpMcClient.ManagedClusters.ListBySubscriptionNext);*/
-
-                        var clusterList = GetClusterList(sfManagedClusterCollection);
-                        WriteObject(clusterList, true);
-
-                        //WriteObject(cluster2List.Select(c => new PSManagedCluster(c)), true);
+                        var clusterList2 = this.GetClusterList(sfManagedClusterCollection).GetAwaiter().GetResult();
+                        WriteObject(clusterList2, true);
                         break;
                 }
             }
@@ -90,14 +79,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         private async Task<List<ServiceFabricManagedClusterData>> GetClusterList(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            List<ServiceFabricManagedClusterData> clusterList = new List<ServiceFabricManagedClusterData>();
-            
+            var clusterList = new List<ServiceFabricManagedClusterData>();
             await foreach (ServiceFabricManagedClusterResource item in sfManagedClusterCollection.GetAllAsync())
             {
                 clusterList.Add(item.Data);
             }
 
-            return clusterList;
+            return clusterList.Count > 0 ? clusterList : null;
         }
     }
 }

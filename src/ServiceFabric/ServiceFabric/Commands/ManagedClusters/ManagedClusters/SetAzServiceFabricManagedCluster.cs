@@ -12,15 +12,14 @@
 // ----------------------------------------------------------------------------------
 
 using System;
-using System.Collections.Generic;
 using System.Management.Automation;
 using Azure.ResourceManager;
 using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
+using System.Collections;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -86,7 +85,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         
         [Parameter(Mandatory = false, ParameterSetName = WithParamsByName, HelpMessage = "Specify the tags as key/value pairs.")]
         [Parameter(Mandatory = false, ParameterSetName = WithParamsById, HelpMessage = "Specify the tags as key/value pairs.")]
-        public KeyValuePair<string, string> Tag { get; set; }
+        public Hashtable Tag { get; set; }
 
         #endregion
 
@@ -97,13 +96,13 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterCollection collection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
                     ServiceFabricManagedClusterData updatedClusterParams = null;
                     switch (ParameterSetName)
                     {
                         case WithParamsByName:
                         case WithParamsById:
-                            updatedClusterParams = this.GetUpdatedClusterParams(collection);
+                            updatedClusterParams = this.GetUpdatedClusterParams(sfManagedClusterCollection);
                             break;
                         case ByObj:
                             updatedClusterParams = this.InputObject;
@@ -112,10 +111,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                             throw new ArgumentException("Invalid parameter set", ParameterSetName);
                     }
 
-                    ArmOperation<ServiceFabricManagedClusterResource> operation = collection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
-                    ServiceFabricManagedClusterResource result = operation.Value;
+                    var operation = sfManagedClusterCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, updatedClusterParams).GetAwaiter().GetResult();
+                    var result = operation.Value;
 
-                    WriteObject(new PSManagedCluster(result.Data), false);
+                    WriteObject(result.Data, false);
                 }
                 catch (Exception ex)
                 {
@@ -125,35 +124,34 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceFabricManagedClusterData GetUpdatedClusterParams(ServiceFabricManagedClusterCollection collection)
+        private ServiceFabricManagedClusterData GetUpdatedClusterParams(ServiceFabricManagedClusterCollection sfManagedClusterCollection)
         {
-            ServiceFabricManagedClusterResource result = collection.GetAsync(this.Name).GetAwaiter().GetResult();
-            ServiceFabricManagedClusterData currentCluster = result.Data;
+            var currentClusterResource = sfManagedClusterCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+            var currentClusterData = currentClusterResource.Data;
 
-            this.ValidateParams(currentCluster);
+            this.ValidateParams(currentClusterData);
 
             if (!string.IsNullOrEmpty(this.CodeVersion))
             {
-                currentCluster.ClusterCodeVersion = this.CodeVersion;
+                currentClusterData.ClusterCodeVersion = this.CodeVersion;
             }
 
             if (this.ClientConnectionPort.HasValue)
             {
-                currentCluster.ClientConnectionPort = ClientConnectionPort;
+                currentClusterData.ClientConnectionPort = ClientConnectionPort;
             }
 
             if (!string.IsNullOrEmpty(this.DnsName))
             {
-                currentCluster.DnsName = DnsName;
+                currentClusterData.DnsName = DnsName;
             }
 
             if (this.IsParameterBound(c => c.Tag))
             {
-                //currentCluster.Tags.Clear();
-                currentCluster.Tags.Add(this.Tag);
+                this.AddToList(currentClusterData.Tags, this.Tag);
             }
 
-            return currentCluster;
+            return currentClusterData;
         }
 
         private void ValidateParams(ServiceFabricManagedClusterData currentCluster)

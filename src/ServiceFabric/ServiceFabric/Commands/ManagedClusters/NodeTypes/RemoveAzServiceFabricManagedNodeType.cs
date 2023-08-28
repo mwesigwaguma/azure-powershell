@@ -105,8 +105,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             try
             {
                 this.SetParams();
-                var nodeTypeCollection = GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
-                var serviceFabricManagedNodeType = nodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                var sfManageNodeTypeCollection = this.GetNodeTypeCollection(this.ResourceGroupName, this.ClusterName);
+                var serviceFabricManagedNodeTypeResource = sfManageNodeTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
 
                 switch (ParameterSetName)
                 {
@@ -122,7 +122,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                                 content.Nodes.Add(nodeName);
                             }
 
-                            serviceFabricManagedNodeType.DeleteNodeAsync(WaitUntil.Completed, content).Wait();
+                            serviceFabricManagedNodeTypeResource.DeleteNodeAsync(WaitUntil.Completed, content).Wait();
                         }
 
                         break;
@@ -132,7 +132,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     case DeleteNodeTypeById:
                         if (ShouldProcess(target: this.Name, action: string.Format("Remove node type: {0} on cluster {1}, resource group {2}", this.Name, this.ClusterName, this.ResourceGroupName)))
                         {
-                            serviceFabricManagedNodeType.DeleteAsync(WaitUntil.Completed).Wait();
+                            serviceFabricManagedNodeTypeResource.DeleteAsync(WaitUntil.Completed).Wait();
                         }
 
                         break;

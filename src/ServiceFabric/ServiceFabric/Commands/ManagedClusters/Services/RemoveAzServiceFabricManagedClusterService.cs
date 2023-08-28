@@ -14,10 +14,10 @@
 
 using System;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -59,7 +59,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         public string ResourceId { get; set; }
 
         [Parameter(Mandatory = true, ParameterSetName = ByInputObject, ValueFromPipeline = true, HelpMessage = "The managed service resource.")]
-        public PSManagedService InputObject { get; set; }
+        public ServiceFabricManagedServiceData InputObject { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = ByResourceGroup)]
         [Parameter(Mandatory = false, ParameterSetName = ByInputObject)]
@@ -104,13 +104,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var beginRequestResponse = this.SfrpMcClient.Services.BeginDeleteWithHttpMessagesAsync(
-                                    this.ResourceGroupName,
-                                    this.ClusterName,
-                                    this.ApplicationName,
-                                    this.Name).GetAwaiter().GetResult();
-
-                            this.PollLongRunningOperation(beginRequestResponse);
+                            var sfManagedServiceCollection = this.GetSfManagedServiceCollection(this.ApplicationName);
+                            var serviceResource = sfManagedServiceCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                            serviceResource.DeleteAsync(WaitUntil.Completed).Wait();
                             if (PassThru)
                             {
                                 WriteObject(true);

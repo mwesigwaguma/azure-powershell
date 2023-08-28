@@ -18,7 +18,6 @@ using Azure;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
@@ -102,10 +101,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         try
                         {
-                            var appTypeCollection = GetApplicationTypeCollection();
-                            ServiceFabricManagedApplicationTypeResource applicationType = appTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult();
+                            var sfManagedAppTypeCollection = this.GetSfManagedApplicationTypeCollection();
+                            var applicationTypeResource = sfManagedAppTypeCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
 
-                            applicationType?.DeleteAsync(WaitUntil.Completed).Wait();
+                            applicationTypeResource?.DeleteAsync(WaitUntil.Completed).Wait();
 
                             if (PassThru)
                             {

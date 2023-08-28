@@ -14,18 +14,14 @@
 
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Management.Automation;
-using Azure.Core;
-using Azure.ResourceManager.Resources;
 using Azure.ResourceManager.ServiceFabricManagedClusters;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
-using Microsoft.Azure.Commands.ServiceFabric.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", SupportsShouldProcess = true), OutputType(typeof(PSManagedApplicationTypeVersion))]
+    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterApplicationTypeVersion", SupportsShouldProcess = true), OutputType(typeof(ServiceFabricManagedApplicationTypeVersionData))]
     public class NewAzServiceFabricManagedClustersApplicationTypeVersion : ManagedApplicationCmdletBase
     {
         #region Paramters
@@ -74,7 +70,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ServiceFabricManagedClusterCollection sfManagedClustercollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var sfManagedClustercollection = GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
                     var exists = sfManagedClustercollection.ExistsAsync(this.ClusterName).GetAwaiter().GetResult().Value;
                     
                     if (!exists)
@@ -86,8 +82,8 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     {
                         var clusterResource = sfManagedClustercollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
 
-                        CreateManagedApplicationType(this.Name, clusterResource.Data.Location, new KeyValuePair<string, string>(this.Tag.Keys.ToString(), this.Tag.Values.ToString()), errorIfPresent: false);
-                        var managedAppTypeVersion = CreateManagedApplicationTypeVersion(
+                        CreateManagedApplicationType(this.Name, clusterResource.Data.Location, this.Tag, errorIfPresent: false);
+                        var managedAppTypeVersionResource = CreateManagedApplicationTypeVersion(
                             applicationTypeName: this.Name,
                             typeVersion: this.Version,
                             location: clusterResource.Data.Location,
@@ -95,7 +91,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                             force: this.Force.IsPresent,
                             tags: this.Tag);
                        
-                        WriteObject(managedAppTypeVersion.Data);
+                        WriteObject(managedAppTypeVersionResource.Data);
                     }
                 }
                 catch (Exception ex)

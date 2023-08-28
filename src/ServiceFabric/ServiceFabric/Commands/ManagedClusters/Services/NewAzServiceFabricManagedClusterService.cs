@@ -14,20 +14,18 @@
 
 using System;
 using System.Collections;
-using System.Linq;
 using System.Management.Automation;
+using Azure;
+using Azure.ResourceManager.ServiceFabricManagedClusters;
+using Azure.ResourceManager.ServiceFabricManagedClusters.Models;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
 using Microsoft.Azure.Commands.ServiceFabric.Models;
-using Microsoft.Azure.Management.Internal.Resources;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters;
-using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
-using Microsoft.WindowsAzure.Commands.Common.CustomAttributes;
 using Microsoft.WindowsAzure.Commands.Utilities.Common;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", SupportsShouldProcess = true, DefaultParameterSetName = StatelessSingleton), OutputType(typeof(PSManagedService))]
+    [Cmdlet(VerbsCommon.New, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterService", SupportsShouldProcess = true, DefaultParameterSetName = StatelessSingleton), OutputType(typeof(ServiceFabricManagedServiceData))]
     public class NewAzServiceFabricManagedClusterService : ManagedApplicationCmdletBase
     {
         private const string StatelessSingleton = "Stateless-Singleton";
@@ -282,7 +280,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
         [Parameter(Mandatory = false, ParameterSetName = StatefulNamed,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
-        public PSServiceMetric[] Metric { get; set; }
+        public ManagedServiceLoadMetric[] Metric { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = StatelessSingleton,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
@@ -296,7 +294,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
         [Parameter(Mandatory = false, ParameterSetName = StatefulNamed,
             HelpMessage = "Specify the placement constraints of the managed service, as a string.")]
-        public PSServiceCorrelation[] Correlation { get; set; }
+        public ManagedServiceCorrelation[] Correlation { get; set; }
 
         [Parameter(Mandatory = false, ParameterSetName = StatelessSingleton,
             HelpMessage = "Specify the default cost for a move. Higher costs make it less likely that the Cluster Resource Manager will move the replica when trying to balance the cluster")]
@@ -391,16 +389,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    ManagedCluster cluster = SafeGetResource(() => this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName));
-                    if (cluster == null)
+                    var sfManagedClusterCollection = this.GetServiceFabricManagedClusterCollection(this.ResourceGroupName);
+                    var exists = sfManagedClusterCollection.ExistsAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+                    if (!exists)
                     {
                         WriteError(new ErrorRecord(new InvalidOperationException($"Parent cluster '{this.ClusterName}' does not exist."),
                             "ResourceDoesNotExist", ErrorCategory.InvalidOperation, null));
                     }
                     else
                     {
-                        var service = CreateService(cluster.Location);
-                        WriteObject(PSManagedService.GetInstance(service), false);
+                        var clusterResource = sfManagedClusterCollection.GetAsync(this.ClusterName).GetAwaiter().GetResult().Value;
+                        var serviceData = CreateService(clusterResource.Data.Location);
+                        WriteObject(serviceData, false);
                     }
                 }
                 catch (Exception ex)
@@ -411,55 +411,46 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ServiceResource CreateService(string location)
+        private ServiceFabricManagedServiceData CreateService(string location)
         {
-            var service = SafeGetResource(() =>
-                this.SfrpMcClient.Services.Get(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    this.ApplicationName,
-                    this.Name),
-                false);
-
-            if (service != null)
+            var serviceCollection = GetSfManagedServiceCollection(this.ApplicationName);
+            var exists = serviceCollection.ExistsAsync(this.Name).GetAwaiter().GetResult().Value;
+            if (exists)
             {
                 WriteError(new ErrorRecord(new InvalidOperationException($"Managed Service '{this.Name}' already exists."),
                     "ResourceAlreadyExists", ErrorCategory.InvalidOperation, null));
-                return service;
+
+                var serviceResource = serviceCollection.GetAsync(this.Name).GetAwaiter().GetResult().Value;
+                return serviceResource.Data;
             }
 
             WriteVerbose($"Creating service '{this.Name}.'");
 
-            ServiceResource serviceParams = GetNewServiceParameters(location);
-
-            var beginRequestResponse = this.SfrpMcClient.Services.BeginCreateOrUpdateWithHttpMessagesAsync(
-                    this.ResourceGroupName,
-                    this.ClusterName,
-                    this.ApplicationName,
-                    this.Name,
-                    serviceParams).GetAwaiter().GetResult();
-
-            return this.PollLongRunningOperation(beginRequestResponse);
+            ServiceFabricManagedServiceData serviceParams = GetNewServiceParameters(location);
+            var operation = serviceCollection.CreateOrUpdateAsync(WaitUntil.Completed, this.Name, serviceParams).GetAwaiter().GetResult();
+            
+            return operation.Value.Data;
         }
 
         #region Helper methods
-        private ServiceResource GetNewServiceParameters(string location)
+        private ServiceFabricManagedServiceData GetNewServiceParameters( string location)
         {
-            ServiceResource service = new ServiceResource()
-            {
-                Tags = this.Tag?.Cast<DictionaryEntry>().ToDictionary(d => d.Key as string, d => d.Value as string),
-                Location = location,
-                Properties = new ServiceResourceProperties()
-            };
+            var serviceData = new ServiceFabricManagedServiceData(location);
 
+            if (this.IsParameterBound(c => c.Tag))
+            {
+                this.AddToList(serviceData.Tags, this.Tag);
+            }
+            
             switch (ParameterSetName)
             {
                 case StatelessSingleton:
                 case StatelessUniformInt64:
                 case StatelessNamed:
-                    StatelessServiceProperties statelessProperties = new StatelessServiceProperties();
-                    // Required
-                    statelessProperties.InstanceCount = this.InstanceCount;
+                    StatelessServiceProperties statelessProperties = new StatelessServiceProperties(
+                        this.Type,
+                        this.SetPartitionDescription(),
+                        this.InstanceCount);
 
                     // Optional
                     if (this.IsParameterBound(c => c.MinInstancePercentage))
@@ -471,27 +462,27 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         statelessProperties.MinInstanceCount = this.MinInstanceCount;
                     }
 
-                    service.Properties = statelessProperties;
+                    serviceData.Properties = statelessProperties;
                     break;
                 case StatefulSingleton:
                 case StatefulUniformInt64:
                 case StatefulNamed:
-                    StatefulServiceProperties statefulProperties = new StatefulServiceProperties();
+                    StatefulServiceProperties statefulProperties = new StatefulServiceProperties(this.Type, this.SetPartitionDescription());
                     if (this.IsParameterBound(c => c.ServicePlacementTimeLimit))
                     {
-                        statefulProperties.ServicePlacementTimeLimit = this.ServicePlacementTimeLimit.ToString();
+                        statefulProperties.ServicePlacementTimeLimit = this.ServicePlacementTimeLimit;
                     }
                     if (this.IsParameterBound(c => c.StandByReplicaKeepDuration))
                     {
-                        statefulProperties.StandByReplicaKeepDuration = this.StandByReplicaKeepDuration.ToString();
+                        statefulProperties.StandByReplicaKeepDuration = this.StandByReplicaKeepDuration;
                     }
                     if (this.IsParameterBound(c => c.QuorumLossWaitDuration))
                     {
-                        statefulProperties.QuorumLossWaitDuration = this.QuorumLossWaitDuration.ToString();
+                        statefulProperties.QuorumLossWaitDuration = this.QuorumLossWaitDuration;
                     }
                     if (this.IsParameterBound(c => c.ReplicaRestartWaitDuration))
                     {
-                        statefulProperties.ReplicaRestartWaitDuration = this.ReplicaRestartWaitDuration.ToString();
+                        statefulProperties.ReplicaRestartWaitDuration = this.ReplicaRestartWaitDuration;
                     }
                     if (this.IsParameterBound(c => c.HasPersistedState))
                     {
@@ -506,22 +497,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                         statefulProperties.TargetReplicaSetSize = this.TargetReplicaSetSize;
                     }
 
-                    service.Properties = statefulProperties;
+                    serviceData.Properties = statefulProperties;
                     break;
                 default:
                     throw new PSArgumentException("Invalid ParameterSetName");
             }
-            SetCommonProperties(service.Properties);
+            SetCommonProperties(serviceData.Properties);
 
-            return service;
+            return serviceData;
         }
 
-        private void SetCommonProperties(ServiceResourceProperties properties)
+        private void SetCommonProperties(ManagedServiceProperties properties)
         {
-            // Required
-            properties.ServiceTypeName = this.Type;
-            properties.PartitionDescription = SetPartitionDescription();
-
             // Optional
             if (this.IsParameterBound(c => c.ServicePackageActivationMode))
             {
@@ -537,15 +524,21 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
             if (this.IsParameterBound(c => c.Metric))
             {
-                properties.ServiceLoadMetrics = this.Metric;
+                foreach (ManagedServiceLoadMetric metric in this.Metric)
+                {
+                    properties.ServiceLoadMetrics.Add(metric);
+                }
             }
             if (this.IsParameterBound(c => c.Correlation))
             {
-                properties.CorrelationScheme = this.Correlation;
+                foreach (ManagedServiceCorrelation scheme in this.Correlation)
+                { 
+                    properties.CorrelationScheme.Add(scheme);
+                }
             }
         }
 
-        private Partition SetPartitionDescription()
+        private ManagedServicePartitionScheme SetPartitionDescription()
         {
             switch (ParameterSetName)
             {
