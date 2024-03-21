@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
@@ -23,8 +24,8 @@ using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Add, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeTypeVMExtension", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedNodeType))]
-    public class AddAzServiceFabricManagedNodeTypeVMExtension : ServiceFabricManagedCmdletBase
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedNodeTypeVMExtension", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedNodeType))]
+    public class SetAzServiceFabricManagedNodeTypeVMExtension : ServiceFabricManagedCmdletBase
     {
         protected const string ByName = "ByName";
         protected const string ByObj = "ByObj";
@@ -70,7 +71,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = true, HelpMessage = "Specifies the type of the extension; an example is \"CustomScriptExtension\". You can use the Get-AzVMExtensionImageType cmdlet to get the extension type.")]
         public string Type { get; set; }
 
-        [Parameter(Mandatory = true, HelpMessage = "Specifies the version of the script handler.")]
+        [Parameter(Mandatory = false, HelpMessage = "Specifies the version of the script handler.")]
         public string TypeHandlerVersion { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Indicates whether the extension should use a newer minor version if one is available at deployment time. Once deployed, however, the extension will not upgrade minor versions unless redeployed, even with this property set to true.")]
@@ -100,7 +101,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             {
                 try
                 {
-                    NodeType updatedNodeTypeParams = this.GetNodeTypeWithAddedExtension();
+                    NodeType updatedNodeTypeParams = this.GetNodeTypeWithUpdatedExtension();
                     var beginRequestResponse = this.SfrpMcClient.NodeTypes.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, this.NodeTypeName, updatedNodeTypeParams)
                         .GetAwaiter().GetResult();
 
@@ -116,29 +117,63 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private NodeType GetNodeTypeWithAddedExtension()
+        private NodeType GetNodeTypeWithUpdatedExtension()
         {
             NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.NodeTypeName);
 
-            if (currentNodeType.VMExtensions == null)
+            if (currentNodeType.VMExtensions != null)
+            {
+                var originalLength = currentNodeType.VMExtensions.Count();
+                currentNodeType.VMExtensions = currentNodeType.VMExtensions.Where(ext => !string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (originalLength == currentNodeType.VMExtensions.Count())
+                {
+                    throw new ArgumentException(string.Format("extension with name {0} not found", this.Name));
+                }
+            }
+            else
             {
                 currentNodeType.VMExtensions = new List<VmssExtension>();
             }
 
-            currentNodeType.VMExtensions.Add(new VmssExtension()
+            VmssExtension updatedVmExtension = new VmssExtension()
             {
                 Name = this.Name,
                 Publisher = this.Publisher,
                 Type = this.Type,
                 TypeHandlerVersion = this.TypeHandlerVersion,
-                ForceUpdateTag = this.ForceUpdateTag,
-                AutoUpgradeMinorVersion = this.AutoUpgradeMinorVersion.IsPresent,
-                Settings = this.Setting,
-                ProtectedSettings = this.ProtectedSetting,
-                ProvisionAfterExtensions = this.ProvisionAfterExtension,
-                SetupOrder = this.SetupOrder
-            });
+            };
 
+            if (String.IsNullOrEmpty(this.ForceUpdateTag))
+            {
+                updatedVmExtension.ForceUpdateTag = this.ForceUpdateTag;
+            }
+
+            if (this.AutoUpgradeMinorVersion.IsPresent)
+            {
+                updatedVmExtension.AutoUpgradeMinorVersion = this.AutoUpgradeMinorVersion;
+            }
+
+            if (this.Setting != null)
+            { 
+                updatedVmExtension.Settings = this.Setting;
+            }
+
+            if (this.ProtectedSetting != null)
+            {
+                updatedVmExtension.ProtectedSettings = this.ProtectedSetting;
+            }
+
+            if (this.ProvisionAfterExtension?.Length > 0)
+            { 
+                updatedVmExtension.ProvisionAfterExtensions = this.ProvisionAfterExtension;
+            }
+
+            if (this.SetupOrder.Length > 0)
+            { 
+                updatedVmExtension.SetupOrder = this.SetupOrder;
+            }
+
+            currentNodeType.VMExtensions.Add(updatedVmExtension);
             return currentNodeType;
         }
 

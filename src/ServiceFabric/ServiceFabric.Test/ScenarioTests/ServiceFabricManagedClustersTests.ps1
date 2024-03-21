@@ -101,13 +101,12 @@ function Test-NodeTypeOperations
 
 function Test-CertAndExtension
 {
-	#$resourceGroupName = "sfmcps-rg-" + (getAssetname)
-	#$clusterName = "sfmcps-" + (getAssetname)
-	$resourceGroupName = "sfmcps-rg-tcl1"
-	$clusterName = "sfmcps-test-cluster1"
+	$resourceGroupName = "sfmcps-rg-" + (getAssetname)
+	$clusterName = "sfmcps-" + (getAssetname)
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
+	$setupOrder = 'BeforeSFRuntime'
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
@@ -122,14 +121,26 @@ function Test-CertAndExtension
     $publisher = 'Microsoft.Compute';
     $extType = 'BGInfo';
     $extVer = '2.1';
+	$extVerUpdate = '2.2';
+	$forceUpdateTag = 'updateTag'
+	$provisionAfterExtension = 'csetest'
 
-	$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt `
+	$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt -SetupOrder $setupOrder`
 		-Name $extName -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -Verbose
 
 	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
 
 	Assert-NotNull $pnt.VmExtensions
 	Assert-AreEqual 1 $pnt.VmExtensions.Count
+	Assert-AreEqual $pnt.VmExtensions.SetupOrder[0] $setupOrder
+
+	$pnt = Set-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt`
+		-Name $extName  -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -AutoUpgradeMinorVersion -ForceUpdateTag $forceUpdateTag -Verbose
+
+	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
+	Assert-AreEqual $pnt.VmExtensions[0].TypeHandlerVersion $extVerUpdate
+	Assert-True $pnt.VmExtensions[0].AutoUpgradeMinorVersion
+	Assert-AreEqual $pnt.VmExtensions[0].ForceUpdateTag $forceUpdateTag
 
 	# add client cert
 	Assert-AreEqual 1 $cluster.Clients.Count
