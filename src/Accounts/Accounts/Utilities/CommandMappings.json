@@ -6352,6 +6352,7 @@
       "Add-AzServiceFabricManagedClusterClientCertificate": {},
       "Add-AzServiceFabricManagedClusterNetworkSecurityRule": {},
       "Add-AzServiceFabricManagedNodeTypeVMExtension": {},
+      "Set-AzServiceFabricManagedNodeTypeVMExtension": {},
       "Add-AzServiceFabricManagedNodeTypeVMSecret": {},
       "Add-AzServiceFabricNode": {},
       "Add-AzServiceFabricNodeType": {},

@@ -106,7 +106,7 @@ function Test-CertAndExtension
 	$location = "southcentralus"
 	$testClientTp = "123BDACDCDFB2C7B250192C6078E47D1E1DB119B"
 	$pass = (ConvertTo-SecureString -AsPlainText -Force "TestPass1234!@#")
-	$setupOrder = 'BeforeSFRuntime'
+	$setupOrder = "BeforeSFRuntime"
 	Assert-ThrowsContains { Get-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -Name $clusterName } "NotFound"
 
 	$cluster = New-AzServiceFabricManagedCluster -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Location $location `
@@ -125,21 +125,21 @@ function Test-CertAndExtension
 	$forceUpdateTag = 'updateTag'
 	$provisionAfterExtension = 'csetest'
 
-	$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt -SetupOrder $setupOrder`
+	$pnt = Add-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt -SetupOrder $setupOrder `
 		-Name $extName -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -Verbose
 
 	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
 
 	Assert-NotNull $pnt.VmExtensions
 	Assert-AreEqual 1 $pnt.VmExtensions.Count
-	Assert-AreEqual $pnt.VmExtensions.SetupOrder[0] $setupOrder
+	Assert-AreEqual $pnt.VmExtensions.SetupOrder $setupOrder
 
-	$pnt = Set-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt`
-		-Name $extName  -Publisher $publisher -Type $extType -TypeHandlerVersion $extVer -AutoUpgradeMinorVersion -ForceUpdateTag $forceUpdateTag -Verbose
+	$pnt = Set-AzServiceFabricManagedNodeTypeVMExtension -ResourceGroupName $resourceGroupName -ClusterName $clusterName -NodeTypeName pnt `
+		-Name $extName -TypeHandlerVersion $extVerUpdate -AutoUpgradeMinorVersion -ForceUpdateTag $forceUpdateTag -Verbose
 
 	$pnt = Get-AzServiceFabricManagedNodeType -ResourceGroupName $resourceGroupName -ClusterName $clusterName -Name pnt
 	Assert-AreEqual $pnt.VmExtensions[0].TypeHandlerVersion $extVerUpdate
-	Assert-True $pnt.VmExtensions[0].AutoUpgradeMinorVersion
+	Assert-True { $pnt.VmExtensions[0].AutoUpgradeMinorVersion }
 	Assert-AreEqual $pnt.VmExtensions[0].ForceUpdateTag $forceUpdateTag
 
 	# add client cert

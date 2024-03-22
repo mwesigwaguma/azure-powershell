@@ -65,12 +65,6 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [Parameter(Mandatory = false, HelpMessage = "If a value is provided and is different from the previous value, the extension handler will be forced to update even if the extension configuration has not changed.")]
         public string ForceUpdateTag { get; set; }
 
-        [Parameter(Mandatory = true, HelpMessage = "The name of the extension handler publisher. This can use the Get-AzVMImagePublisher cmdlet to get the publisher.")]
-        public string Publisher { get; set; }
-
-        [Parameter(Mandatory = true, HelpMessage = "Specifies the type of the extension; an example is \"CustomScriptExtension\". You can use the Get-AzVMExtensionImageType cmdlet to get the extension type.")]
-        public string Type { get; set; }
-
         [Parameter(Mandatory = false, HelpMessage = "Specifies the version of the script handler.")]
         public string TypeHandlerVersion { get; set; }
 
@@ -97,7 +91,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         public override void ExecuteCmdlet()
         {
             this.SetParams();
-            if (ShouldProcess(target: this.Name, action: string.Format("Add Extensions {0} with type {1} to node type {2}", this.Name, this.Type, this.NodeTypeName)))
+            if (ShouldProcess(target: this.Name, action: string.Format("Update Extensions {0} with node type {1}", this.Name, this.NodeTypeName)))
             {
                 try
                 {
@@ -120,6 +114,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         private NodeType GetNodeTypeWithUpdatedExtension()
         {
             NodeType currentNodeType = this.SfrpMcClient.NodeTypes.Get(this.ResourceGroupName, this.ClusterName, this.NodeTypeName);
+            var initialExtList = currentNodeType.VMExtensions;
 
             if (currentNodeType.VMExtensions != null)
             {
@@ -130,48 +125,22 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
                     throw new ArgumentException(string.Format("extension with name {0} not found", this.Name));
                 }
             }
-            else
-            {
-                currentNodeType.VMExtensions = new List<VmssExtension>();
-            }
+
+            var currentExtension = initialExtList.FirstOrDefault(ext => string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase)) ?? throw new ArgumentException(string.Format("extension with name {0} not found", this.Name));
 
             VmssExtension updatedVmExtension = new VmssExtension()
             {
                 Name = this.Name,
-                Publisher = this.Publisher,
-                Type = this.Type,
+                Publisher = currentExtension.Publisher,
+                Type = currentExtension.Type,
                 TypeHandlerVersion = this.TypeHandlerVersion,
+                ForceUpdateTag = this.ForceUpdateTag,
+                AutoUpgradeMinorVersion = this.AutoUpgradeMinorVersion.IsPresent,
+                Settings = this.Setting,
+                ProtectedSettings = this.ProtectedSetting,
+                ProvisionAfterExtensions = this.ProvisionAfterExtension,
+                SetupOrder = this.SetupOrder
             };
-
-            if (String.IsNullOrEmpty(this.ForceUpdateTag))
-            {
-                updatedVmExtension.ForceUpdateTag = this.ForceUpdateTag;
-            }
-
-            if (this.AutoUpgradeMinorVersion.IsPresent)
-            {
-                updatedVmExtension.AutoUpgradeMinorVersion = this.AutoUpgradeMinorVersion;
-            }
-
-            if (this.Setting != null)
-            { 
-                updatedVmExtension.Settings = this.Setting;
-            }
-
-            if (this.ProtectedSetting != null)
-            {
-                updatedVmExtension.ProtectedSettings = this.ProtectedSetting;
-            }
-
-            if (this.ProvisionAfterExtension?.Length > 0)
-            { 
-                updatedVmExtension.ProvisionAfterExtensions = this.ProvisionAfterExtension;
-            }
-
-            if (this.SetupOrder.Length > 0)
-            { 
-                updatedVmExtension.SetupOrder = this.SetupOrder;
-            }
 
             currentNodeType.VMExtensions.Add(updatedVmExtension);
             return currentNodeType;
