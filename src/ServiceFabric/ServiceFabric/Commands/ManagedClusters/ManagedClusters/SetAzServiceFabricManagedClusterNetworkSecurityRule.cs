@@ -14,6 +14,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Management.Automation;
 using Microsoft.Azure.Commands.ResourceManager.Common.ArgumentCompleters;
 using Microsoft.Azure.Commands.ServiceFabric.Common;
@@ -24,11 +25,10 @@ using Microsoft.Azure.Management.ServiceFabricManagedClusters.Models;
 
 namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 {
-    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterNetworkSecurityRule", DefaultParameterSetName = ByObj, SupportsShouldProcess = true), OutputType(typeof(PSManagedCluster))]
+    [Cmdlet(VerbsCommon.Set, ResourceManager.Common.AzureRMConstants.AzurePrefix + Constants.ServiceFabricPrefix + "ManagedClusterNetworkSecurityRule", DefaultParameterSetName = ByName, SupportsShouldProcess = true), OutputType(typeof(PSNsgRule))]
     public class SetAzServiceFabricManagedClusterNetworkSecurityRule : ServiceFabricManagedCmdletBase
     {
         protected const string ByName = "ByName";
-        protected const string ByObj = "ByObj";
         protected const string AnyTrueValue = "*";
 
         #region Params
@@ -47,15 +47,10 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         [ValidateNotNullOrEmpty()]
         public string ClusterName { get; set; }
 
-        [Parameter(Mandatory = false, Position = 0, ValueFromPipeline = true, ParameterSetName = ByObj,
-            HelpMessage = "Cluster resource")]
-        [ValidateNotNull]
-        public PSManagedCluster InputObject { get; set; }
-
         #endregion
 
         [Parameter(Mandatory = false, HelpMessage = "Gets or sets the network traffic is allowed or denied. Possible values include: Allow, Deny ")]
-        public NetworkSecurityAccess Access { get; set; }
+        public NetworkSecurityAccess? Access { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Gets or sets network security rule description.")]
         public string Description { get; set; }
@@ -67,9 +62,9 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         public string[] DestinationPortRange { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Gets or sets network security rule direction. Possible values include: Inbound, Outbound ")]
-        public NetworkSecurityDirection Direction { get; set; }
+        public NetworkSecurityDirection? Direction { get; set; }
 
-        [Parameter(Mandatory = false, HelpMessage = "network security rule name.")]
+        [Parameter(Mandatory = true, HelpMessage = "network security rule name.")]
         [Alias("NetworkSecurityRuleName")]
         public string Name { get; set; }
 
@@ -77,7 +72,7 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
         public int Priority { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Gets or sets network protocol this rule applies to. Possible values include: http, https, tcp, udp, icmp, ah, esp, any ")]
-        public NetworkSecurityProtocol Protocol { get; set; }
+        public NetworkSecurityProtocol? Protocol { get; set; }
 
         [Parameter(Mandatory = false, HelpMessage = "Gets or sets the CIDR or source IP ranges.")]
         public string[] SourceAddressPrefix { get; set; }
@@ -92,18 +87,18 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
 
         public override void ExecuteCmdlet()
         {
-            this.SetParams();
             if (ShouldProcess(target: this.Name, action: string.Format("Add NetworkSecurityRule {0} to {1} cluster", this.Name, this.ClusterName)))
             {
                 try
                 {
-                    ManagedCluster updatedCluster = this.GetClusterWithUpdatedNetworkSecurityRule();
+                    ManagedCluster updatedCluster = this.GetClusterWithNewNetworkSecurityRule();
                     var beginRequestResponse = this.SfrpMcClient.ManagedClusters.BeginCreateOrUpdateWithHttpMessagesAsync(this.ResourceGroupName, this.ClusterName, updatedCluster)
                         .GetAwaiter().GetResult();
 
                     var cluster = this.PollLongRunningOperation(beginRequestResponse);
+                    var nsg = cluster.NetworkSecurityRules.FirstOrDefault(x => x.Name == this.Name);
 
-                    WriteObject(new PSManagedCluster(cluster), false);
+                    WriteObject(new PSNsgRule(nsg), false);
                 }
                 catch (Exception ex)
                 {
@@ -113,62 +108,57 @@ namespace Microsoft.Azure.Commands.ServiceFabric.Commands
             }
         }
 
-        private ManagedCluster GetClusterWithUpdatedNetworkSecurityRule()
+        private ManagedCluster GetClusterWithNewNetworkSecurityRule()
         {
             ManagedCluster currentCluster = this.SfrpMcClient.ManagedClusters.Get(this.ResourceGroupName, this.ClusterName);
 
-            if (currentCluster.NetworkSecurityRules == null)
+            var nsgToUpdate = currentCluster.NetworkSecurityRules.FirstOrDefault(ext => string.Equals(ext.Name, this.Name, StringComparison.OrdinalIgnoreCase)) ?? throw new ArgumentException(string.Format("NSG with name {0} not found", this.Name));
+            currentCluster.NetworkSecurityRules = currentCluster.NetworkSecurityRules.Where(nsg => !string.Equals(nsg.Name, this.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (this.Access.HasValue)
             {
-                currentCluster.NetworkSecurityRules = new List<NetworkSecurityRule>();
+                nsgToUpdate.Access = this.Access.ToString();
             }
 
-            currentCluster.NetworkSecurityRules.Add(new NetworkSecurityRule()
-            {
-                Access = this.Access.ToString(),
-                Description = this.Description,
-                DestinationAddressPrefixes = this.DestinationAddressPrefix,
-                DestinationPortRanges = this.DestinationPortRange,
-                Direction = this.Direction.ToString(),
-                Name = this.Name,
-                Priority = this.Priority,
-                Protocol = this.Protocol == NetworkSecurityProtocol.any ? AnyTrueValue : this.Protocol.ToString(),
-                SourceAddressPrefixes = this.SourceAddressPrefix,
-                SourcePortRanges = this.SourcePortRange
-            });
-
-            if (string.IsNullOrEmpty(currentCluster.PublicIPPrefixId))
-            {
-                currentCluster.PublicIPPrefixId = null;
+            if (!String.IsNullOrEmpty(this.Description))
+            { 
+                nsgToUpdate.Description = this.Description;
             }
 
-            if (string.IsNullOrEmpty(currentCluster.PublicIPv6PrefixId))
-            {
-                currentCluster.PublicIPv6PrefixId = null;
+            if (this.DestinationAddressPrefix != null)
+            { 
+                nsgToUpdate.DestinationAddressPrefixes = this.DestinationAddressPrefix;
             }
 
+            if (this.DestinationPortRange != null)
+            { 
+                nsgToUpdate.DestinationPortRanges = this.DestinationPortRange;
+            }
+
+            if (this.Direction.HasValue)
+            { 
+                nsgToUpdate.Direction = this.Direction.ToString();
+            }
+
+            if (this.Protocol.HasValue)
+            { 
+                nsgToUpdate.Protocol = this.Protocol.ToString();
+            }
+
+            if (this.SourceAddressPrefix != null)
+            { 
+                nsgToUpdate.SourceAddressPrefixes = this.SourceAddressPrefix;
+            }
+
+
+            if (this.SourcePortRange != null)
+            { 
+                nsgToUpdate.SourcePortRanges = this.SourcePortRange;
+            }
+
+            currentCluster.NetworkSecurityRules.Add(nsgToUpdate);
             return currentCluster;
-        }
 
-        private void SetParams()
-        {
-            switch (ParameterSetName)
-            {
-                case ByObj:
-                    if (string.IsNullOrEmpty(this.InputObject?.Id))
-                    {
-                        throw new ArgumentException("ResourceId is null.");
-                    }
-
-                    SetParametersByResourceId(this.InputObject.Id);
-                    break;
-            }
-        }
-
-        private void SetParametersByResourceId(string resourceId)
-        {
-            this.GetParametersByResourceId(resourceId, Constants.ManagedClusterProvider, out string resourceGroup, out string resourceName);
-            this.ResourceGroupName = resourceGroup;
-            this.ClusterName = resourceName;
         }
     }
 }

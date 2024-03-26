@@ -79,8 +79,11 @@ FunctionsToExport = @()
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = 'Add-AzServiceFabricClientCertificate', 
                'Add-AzServiceFabricManagedClusterClientCertificate', 
-               'Add-AzServiceFabricManagedClusterNetworkSecurityRule', 
-               'Add-AzServiceFabricManagedNodeTypeVMExtension', 
+               'Add-AzServiceFabricManagedClusterNetworkSecurityRule',
+               'Get-AzServiceFabricManagedClusterNetworkSecurityRule',
+               'Remove-AzServiceFabricManagedClusterNetworkSecurityRule',
+               'Set-AzServiceFabricManagedClusterNetworkSecurityRule',
+               'Remove-AzServiceFabricManagedNodeTypeVMExtension', 
                'Add-AzServiceFabricManagedNodeTypeVMSecret', 
                'Add-AzServiceFabricNode', 'Add-AzServiceFabricNodeType', 
                'Get-AzServiceFabricApplication', 
